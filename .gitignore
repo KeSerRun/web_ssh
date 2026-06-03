@@ -29,5 +29,5 @@ db.sqlite3
 migrations
 
 # docker
-mysql/
-redis/
+docker/mysql/
+docker/redis/
