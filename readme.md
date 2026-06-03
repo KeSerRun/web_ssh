@@ -90,9 +90,9 @@ cd .../web-ssh/backend
 pip install -r requirement.txt # 安装后端依赖包(需要先安装python)
 ```
 
-2.2 数据迁移，需要在...web-ssh/backend/src/settings/dev.py中配置好数据库
+数据迁移，需要在...web-ssh/backend/src/settings/dev.py中配置好数据库
 
-2.2.1 配置MySQL数据库
+配置MySQL数据库
 
 如果有在过程0中docker中部署mysql，则不需操作，自行安装(不通过该项目docker-compose)的mysql，请检查配置中的2.基本连接下的连接参数是否和自己设置的mysql连接匹配
 
@@ -138,7 +138,7 @@ DATABASES = {
 }
 ```
 
-2.2.2 配置channel缓存层
+配置channel缓存层
 
 如果有安装Redis服务，同样无需操作，自行安装(不通过该项目docker-compose)的redis，请检查配置中的的连接参数是否和自己设置的redis连接匹配
 
@@ -169,7 +169,7 @@ CHANNEL_LAYERS = {
 }
 ```
 
-2.2.3 数据迁移
+数据迁移
 
 ```bash
 cd .../web-ssh/backend
@@ -191,7 +191,7 @@ python manage.py runserver
 
 #### ✅ 启动项目
 
-3.1 先检查在终端1和终端2服务已经顺利启动
+先检查在终端1和终端2服务已经顺利启动
 
 终端1
 
@@ -226,11 +226,11 @@ Starting ASGI/Daphne version 4.2.1 development server at http://127.0.0.1:8000/
 Quit the server with CTRL-BREAK.
 ```
 
-3.2 浏览器访问前端入口 http://localhost:5173/
+浏览器访问前端入口 http://localhost:5173/
 
 ![image-20251130010015256](./assets/image-20251130010015256.png)
 
-3.3 输入在2.3中创建的超级管理员账户与密码，点击登陆，进入平台
+输入创建的超级管理员账户与密码，点击登陆，进入平台
 
 ![image-20251130010127860](./assets/image-20251130010127860.png)
 
