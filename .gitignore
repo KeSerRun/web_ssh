@@ -1,0 +1,33 @@
+# Logs
+*.log
+
+# 前端依赖包
+node_modules/
+package-lock.json
+yarn.lock
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# 构建输出
+dist/
+
+# 环境变量
+.env
+
+# 数据
+data/
+db.sqlite3
+migrations
+
+# docker
+mysql/
+redis/
