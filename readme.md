@@ -51,14 +51,11 @@ wsl --update --web-download      # 关键参数，不走 Store 缓存，直接�
 用docker-compose启动对应服务容器，本项目需要mysql，redis，ubuntu容器
 
 ```bash
-cd .../web-ssh/docker/build/mysql
-docker-compose up -d
-
-cd .../web-ssh/docker/build/redis
-docker-compose up -d
-
-cd .../web-ssh/docker/build/ubuntu
-docker-compose up -d --build
+cd docker/build
+# 创建镜像
+docker build -t ubuntu-ssh:latest .
+# 启动容器
+docker compose up -d
 ```
 
 安装Node.js，前端构建项目需要，自行去官网下载
@@ -70,7 +67,7 @@ ___
 初始化前端
 
 ```bash
-cd .../web-ssh/frontend
+cd frontend
 npm install # 安装前端依赖包
 ```
 
@@ -86,15 +83,17 @@ npm run dev
 
 
 ```bash
-cd .../web-ssh/backend
+cd backend
 pip install -r requirement.txt # 安装后端依赖包(需要先安装python)
 ```
 
-数据迁移，需要在...web-ssh/backend/src/settings/dev.py中配置好数据库
+数据迁移，需要在...web-ssh/backend/src/settings/dev.py 中配置好数据库
 
 配置MySQL数据库
 
-如果有在中docker中部署mysql，则不需操作，自行安装(不通过该项目docker-compose)的mysql，请检查配置中的基本连接下的连接参数是否和自己设置的mysql连接匹配
+如果有在中docker中部署mysql，则不需要(已经配置好了)。
+
+自行安装(不通过该项目docker-compose)的mysql，请检查配置中的基本连接下的连接参数是否和自己设置的mysql连接匹配。
 
 ```python
 # 数据库

@@ -1,0 +1,80 @@
+# 定义基础配置锚点（YAML 锚点，供其他服务继承使用）
+x-base: &base
+  restart: always  # 容器退出后总是自动重启
+  labels:  # 为容器添加元数据标签，便于查询和管理
+    project: "web_ssh"  # 项目标识
+    managed-by: "docker-compose"  # 管理工具标识
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    <<: *base  # 继承 base 锚点的所有配置
+    image: mysql:latest  # 使用 MySQL 最新版本镜像
+    container_name: mysql  # 固定容器名称，便于访问
+    labels:  # 分组标签，用于筛选容器
+      group: "database"  # 数据库组标识
+      role: "mysql"  # 服务角色为 MySQL
+    environment:  # 环境变量配置
+      MYSQL_ROOT_PASSWORD: 123456  # root 用户密码
+      MYSQL_DATABASE: web_ssh  # 启动时自动创建的数据库名
+    ports:
+      - "3306:3306"  # 端口映射：宿主机:容器
+    volumes:
+      - ./mysql/data:/var/lib/mysql  # 数据持久化目录
+      - ./mysql/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro  # 配置文件挂载（只读）
+      - ./mysql/log:/var/log/mysql  # 日志目录挂载
+
+  # Redis 缓存服务
+  redis:
+    <<: *base  # 继承 base 锚点的配置
+    image: redis:latest  # 使用 Redis 最新版本镜像
+    container_name: redis  # 固定容器名称
+    labels:
+      group: "database"  # 数据库组标识
+      role: "redis"  # 服务角色为 Redis
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅绑定本地回环地址，限制外部访问
+    volumes:
+      - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf:ro  # Redis 配置文件（只读）
+      - ./redis/data:/data  # Redis 数据持久化目录
+      - ./redis/logs:/logs  # Redis 日志目录
+
+  # SSH 实例 1（端口 10021）
+  ubuntu-21:
+    <<: *base
+    image: ubuntu-ssh:latest  # 使用构建的 SSH 镜像
+    container_name: ubuntu-21  # 容器名称
+    labels:
+      instance-id: "21"  # 实例编号标签
+    ports:
+      - "10021:22"  # 映射宿主机 10021 端口到容器 22 端口
+
+  # SSH 实例 2（端口 10022）
+  ubuntu-22:
+    <<: *base
+    image: ubuntu-ssh:latest  # 使用构建的 SSH 镜像
+    container_name: ubuntu-22  # 容器名称
+    labels:
+      instance-id: "22"  # 实例编号标签
+    ports:
+      - "10022:22"  # 映射宿主机 10022 端口到容器 22 端口
+
+  # SSH 实例 3（端口 10023）
+  ubuntu-23:
+    <<: *base
+    image: ubuntu-ssh:latest  # 使用构建的 SSH 镜像
+    container_name: ubuntu-23  # 容器名称
+    labels:
+      instance-id: "23"  # 实例编号标签
+    ports:
+      - "10023:22"  # 映射宿主机 10023 端口到容器 22 端口
+
+  # SSH 实例 4（端口 10024）
+  ubuntu-24:
+    <<: *base
+    image: ubuntu-ssh:latest  # 使用构建的 SSH 镜像
+    container_name: ubuntu-24  # 容器名称
+    labels:
+      instance-id: "24"  # 实例编号标签
+    ports:
+      - "10024:22"  # 映射宿主机 10024 端口到容器 22 端口
