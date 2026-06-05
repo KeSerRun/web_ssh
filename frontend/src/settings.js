@@ -1,15 +1,30 @@
-// http服务端地址
-const host = 'http://127.0.0.1:8000'; // 本机
-// const host = 'http://10.6.94.252:8000'; // 局域网
+/**
+ * 项目全局配置
+ * ==============
+ * 集中管理后端 API 地址和所有接口端点。
+ *
+ * 切换环境:
+ *   - 本机开发: host = 'http://127.0.0.1:8000'
+ *   - 局域网测试: host = 'http://10.6.94.252:8000'
+ */
+
+// ==================== HTTP 服务端地址 ====================
+const host = 'http://127.0.0.1:8000';           // 本机开发
+// const host = 'http://10.6.94.252:8000';      // 局域网测试
 
 export default { host }
 
-// 项目api配置
+// ==================== API 端点配置 ====================
 export const api = {
-    'token_obtain': host + '/token/obtain/', // 获取jwt认证token pair
-    'token_refresh': host + '/token/refresh/', // 刷新token令牌
-    'token_verify': host + '/token/verify/', // 令牌认证
-    'users': host + '/user/users/', // 用户管理模型
-    'hosts': host + '/host/hosts/', // 主机管理模型
-    'category': host + '/host/category/', // 主机分类模型
+    // JWT 认证相关
+    'token_obtain': host + '/token/obtain/',     // 登录 → 获取 access + refresh token
+    'token_refresh': host + '/token/refresh/',   // 刷新 access token
+    'token_verify': host + '/token/verify/',     // 验证 token 是否有效
+
+    // 用户管理
+    'users': host + '/user/users/',              // 用户 CRUD
+
+    // 主机管理
+    'hosts': host + '/host/hosts/',              // 主机 CRUD
+    'category': host + '/host/category/',        // 主机分类 CRUD
 }

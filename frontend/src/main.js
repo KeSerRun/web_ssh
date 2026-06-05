@@ -1,5 +1,6 @@
 // 项目启动js脚本
 import { createApp } from 'vue'; // 构造函数
+import { createPinia } from 'pinia'; // Pinia 状态管理
 import './style.css'; // 全局样式
 import App from './App.vue'; // 入口组件
 import router from './router/index.js'; // 路由
@@ -8,6 +9,8 @@ import * as Icons from '@ant-design/icons-vue' // Antd图标
 import 'ant-design-vue/dist/reset.css'; // Antd图标样式
 
 const app = createApp(App); // 创建应用实例
+const pinia = createPinia(); // 创建 Pinia 实例
+app.use(pinia); // 绑定 Pinia 状态管理
 app.use(router); // 绑定路由
 app.use(Antd); // 绑定Antd组件库
 app.mount('#app'); // 绑定app
