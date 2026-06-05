@@ -29,11 +29,11 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": ["redis://:12345678@127.0.0.1:6379/0"],   # 默认库 0
+            "hosts": ["redis://:123456@127.0.0.1:6379/0"],   # 默认库 0
             # 如果 Redis 没有密码
             # "hosts": ["redis://127.0.0.1:6379/1"],
             # 或者哨兵/集群
-            # "hosts": [{"host": "127.0.0.1", "port": 6379, "db": 0, "password": "12345678"}],
+            # "hosts": [{"host": "127.0.0.1", "port": 6379, "db": 0, "password": "123456"}],
             "capacity": 1500,      # 单通道最大消息积压
             "expiry": 10,          # 消息过期秒数
         },
@@ -112,8 +112,8 @@ REST_FRAMEWORK = {
 # JWT认证
 SIMPLE_JWT = {
     # ---------- 基础 ----------
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),   # 访问令牌
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),      # 刷新令牌
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),     # 访问令牌
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # 刷新令牌
     'AUTH_HEADER_TYPES': ('Bearer',),                # 请求头前缀
     'ALGORITHM': 'HS256',                            # 对称算法（默认）
     'SIGNING_KEY': SECRET_KEY,                       # 使用 Django 全局密钥
@@ -145,9 +145,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
 
         # 2. 基本连接
-        'NAME': os.getenv('DB_NAME', 'web-ssh'),          # 提前 CREATE DATABASE
+        'NAME': os.getenv('DB_NAME', 'web_ssh'),          # 提前 CREATE DATABASE
         'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '12345678'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '3306'),
 

@@ -84,10 +84,40 @@ npm run dev
 
 ```bash
 cd backend
-pip install -r requirement.txt # 安装后端依赖包(需要先安装python)
+pip install -r requirements.txt # 安装后端依赖包(需要先安装python)
 ```
 
-数据迁移，需要在...web-ssh/backend/src/settings/dev.py 中配置好数据库
+数据迁移(建表)
+
+```bash
+cd web_ssh/backend
+# 生成数据迁移文件
+python manage.py makemigrations
+# 数据迁移
+python manage.py migrate 
+```
+
+创建管理员账户，这是进入平台的唯一账户
+
+```bash
+python manage.py createsuperuser
+```
+
+启动后端服务器(终端2)
+
+```bash
+python manage.py runserver
+```
+
+进入管理员页面
+
+```bash
+http://127.0.0.1:8000/admin
+```
+
+____
+
+其他说明：
 
 配置MySQL数据库
 
@@ -103,9 +133,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
 
         # 2. 基本连接
-        'NAME': os.getenv('DB_NAME', 'web-ssh'),          # 提前 CREATE DATABASE
+        'NAME': os.getenv('DB_NAME', 'web_ssh'),          # 提前 CREATE DATABASE
         'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '12345678'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '3306'),
 
@@ -126,7 +156,7 @@ DATABASES = {
 }
 ```
 
-如果没有下载Mysql，请注释掉该部分代码，在...web-ssh/backend/src/settings/base.py中已配置好sqlite数据库，无需安装
+如果没有下载Mysql，请注释掉该部分代码，在backend/src/settings/base.py中已配置好sqlite数据库，无需安装
 
 ```python
 DATABASES = {
@@ -146,11 +176,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": ["redis://:12345678@127.0.0.1:6379/0"],   # 默认库 0
-            # 如果 Redis 没有密码
-            # "hosts": ["redis://127.0.0.1:6379/1"],
-            # 或者哨兵/集群
-            # "hosts": [{"host": "127.0.0.1", "port": 6379, "db": 0, "password": "12345678"}],
+            "hosts": ["redis://:123456@127.0.0.1:6379/0"],   # 默认库 0
             "capacity": 1500,      # 单通道最大消息积压
             "expiry": 10,          # 消息过期秒数
         },
@@ -158,7 +184,7 @@ CHANNEL_LAYERS = {
 }
 ```
 
-如果没有下载Redis，请注释掉该部分代码，并在...web-ssh/backend/src/settings/dev.py中取消注释
+如果没有下载Redis，请注释掉该部分代码，并在backend/src/settings/dev.py中取消注释
 
 ```python
 CHANNEL_LAYERS = {
@@ -166,26 +192,6 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer"
     }
 }
-```
-
-数据迁移
-
-```bash
-cd .../web-ssh/backend
-python manage.py makemigrations # 生成数据迁移文件
-python manage.py migrate # 数据迁移
-```
-
-创建管理员账户，这是进入平台的唯一账户
-
-```bash
-python manage.py createsuperuser
-```
-
-启动后端服务器(终端2)
-
-```bash
-python manage.py runserver
 ```
 
 #### ✅ 启动项目
