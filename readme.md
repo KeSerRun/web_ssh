@@ -94,7 +94,7 @@ pip install -r requirement.txt # 安装后端依赖包(需要先安装python)
 
 配置MySQL数据库
 
-如果有在过程0中docker中部署mysql，则不需操作，自行安装(不通过该项目docker-compose)的mysql，请检查配置中的2.基本连接下的连接参数是否和自己设置的mysql连接匹配
+如果有在中docker中部署mysql，则不需操作，自行安装(不通过该项目docker-compose)的mysql，请检查配置中的基本连接下的连接参数是否和自己设置的mysql连接匹配
 
 ```python
 # 数据库
