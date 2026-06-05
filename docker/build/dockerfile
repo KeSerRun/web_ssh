@@ -18,9 +18,13 @@ RUN useradd -m -s /bin/bash visitor && \
 # 3. sshd 配置
 RUN mkdir -p /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
-    sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
+    sed -i 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config && \
+    echo 'PubkeyAcceptedAlgorithms +ssh-rsa,ssh-rsa-cert-v01@openssh.com' >> /etc/ssh/sshd_config
 
-# 4. 前台启动（无外部脚本）
+# 4. 修复 root 家目录权限（777 会导致 SSH 拒绝 authorized_keys）
+RUN chmod 700 /root
+
+# 5. 前台启动（无外部脚本）
 CMD ["/usr/sbin/sshd", "-D"]
 
 EXPOSE 22

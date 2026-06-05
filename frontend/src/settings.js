@@ -23,6 +23,7 @@ export const api = {
 
     // 用户管理
     'users': host + '/user/users/',              // 用户 CRUD
+    'register': host + '/user/register/',         // 用户自主注册（独立接口，不走 ViewSet router）
 
     // 主机管理
     'hosts': host + '/host/hosts/',              // 主机 CRUD

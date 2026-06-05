@@ -8,7 +8,8 @@
     title="文件管理器"
     placement="right"
     :width="600"
-    :z-index="99"
+    :z-index="1001"
+    getContainer="body"
   >
     <!-- 工具栏 -->
     <div class="fm-toolbar">
@@ -46,6 +47,7 @@
       :custom-row="customRow"
       size="small"
       :pagination="false"
+      :loading="loading"
       class="fm-table"
     >
       <template #bodyCell="{ column, text }">
@@ -134,6 +136,11 @@ const showDrawer = () => {
   }
 }
 
+// 监听 drawer 打开，确保刷新
+watch(open, (val) => {
+  if (val && props.dev_id) refresh(path.value)
+})
+
 const customRow = (record) => {
   return {
     onDblclick: () => go_on(record),
@@ -160,6 +167,7 @@ const iconMap = {
 const path = ref('./')
 const hide = ref(true)
 const dict = ref([])
+const loading = ref(false)
 
 const get_back_path = () => {
   let currentPath = path.value
@@ -186,21 +194,28 @@ const go_on = (folder) => {
 const pwd = async (current_path) => {
   let formData = { cmd: 'pwd', args: [] }
   return httpPOST(`/host/${props.dev_id}/file/?path=${current_path}`, formData, false).then(response => {
-    if (!response.data.code) path.value = response.data.msg.replace(/\n/g, '')
+    if (response.data.code === 200) path.value = response.data.data.output.replace(/\n/g, '')
     return response
   }).catch(error => { throw error })
 }
 
 const dir = async (current_path) => {
+  loading.value = true
   let formData = { cmd: 'ls', args: hide.value ? ['-l'] : ['-la'] }
   return httpPOST(`/host/${props.dev_id}/file/?path=${current_path}`, formData, false).then(response => {
-    if (!response.data.code) {
-      let raw = response.data.msg
+    if (response.data.code === 200) {
+      let raw = response.data.data.output
       path.value = current_path
       dict.value = parseLs(raw)
+    } else {
+      message.error(response.data.message || '读取目录失败')
     }
     return response
-  }).catch(error => { throw error })
+  }).catch(() => {
+    message.error('文件列表加载失败，请确认主机已连接')
+  }).finally(() => {
+    loading.value = false
+  })
 }
 
 const setName = ref('')
@@ -255,20 +270,22 @@ async function UploadOk() {
   if (fileList.value.length) {
     fileList.value.forEach(file => {
       let formData = new FormData()
-      formData.append('file', file)
+      // Ant Design 的 file 对象是封装过的，真正的文件在 originFileObj 里
+      formData.append('file', file.originFileObj || file)
       formData.append('path', path.value)
       formData.append('filename', file.name)
       httpPOST(`/host/${props.dev_id}/upload/?path=${path.value}`, formData, false).then(async () => {
         await dir(path.value)
-        message.success('上传成功')
-      }).catch(() => { message.error('上传失败') })
+        message.success(`${file.name} 上传成功`)
+      }).catch(() => { message.error(`${file.name} 上传失败`) })
     })
+    fileList.value = []
   }
 }
 
 const refresh = (current_path) => {
   pwd(current_path).then(response => {
-    if (!response.data.code) dir(path.value)
+    if (response.data.code === 200) dir(path.value)
   })
 }
 

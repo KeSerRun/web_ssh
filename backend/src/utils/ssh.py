@@ -8,9 +8,11 @@ SSH 核心工具模块
     工具函数      — SSH 连接探测、远程命令执行、文件上传/下载、密钥对管理
 """
 
-import json, io, base64, queue, threading, paramiko, time, socket
+import json, io, base64, queue, threading, paramiko, time, socket, logging
 from channels.generic.websocket import WebsocketConsumer
 from apps.host.models import Host
+
+logger = logging.getLogger(__name__)
 
 
 class SSHConsumer(WebsocketConsumer):
@@ -68,18 +70,21 @@ class SSHConsumer(WebsocketConsumer):
             except Exception:
                 self.close(code=3003)
                 return
-        self.accept(subprotocol='jwt' if protocols else None)
-
         # 建立 SSH 连接，失败则关闭 WebSocket
         ok, msg = self._open_ssh()
         if not ok:
-            print("SSH初始化失败")
-            print(json.dumps({'error': msg}))
-            self.disconnect(code=3002)
+            logger.error("SSH初始化失败: %s", msg)
+            self.close(code=3002)
             return
 
-        # 启动后台线程，进入"读取SSH输出 → 转发前端"和"接收前端输入 → 转发SSH"的双向循环
-        # daemon=True: 主线程退出时自动回收，防止进程挂住
+        # SSH 连接成功 → 标记主机在线
+        self.host.status = 1
+        self.host.save(update_fields=['status'])
+
+        # 状态更新后再 accept，确保前端 onopen 时 API 已返回最新状态
+        self.accept(subprotocol='jwt' if protocols else None)
+
+        # 启动后台线程
         threading.Thread(target=self._start, daemon=True).start()
 
     # ==================== SSH 连接建立 ====================
@@ -117,7 +122,7 @@ class SSHConsumer(WebsocketConsumer):
             self.chan.invoke_shell()           # 启动 shell
             self.chan.send('exec bash -l\n')   # 切换为 login shell（加载 .bashrc 等）
             self.chan.send('stty -echo\n')     # 关闭 SSH 本地回显，避免双倍字符
-            print(f"SSH初始化成功")
+            logger.info("SSH初始化成功")
             return True, None
         except Exception as e:
             return False, str(e)
@@ -219,6 +224,9 @@ class SSHConsumer(WebsocketConsumer):
         4. 关闭 WebSocket
         """
         self._alive = False
+        if getattr(self, 'host', None):
+            self.host.status = 0
+            self.host.save(update_fields=['status'])
         if getattr(self, 'chan', None):
             self.chan.close()
         if getattr(self, 'ssh', None):
@@ -283,11 +291,18 @@ def push_public_key(host_info):
             username=host_info.get('username'),
             password=host_info.get('connect_pwd')  # 用密码临时认证
         )
-        ssh.exec_command('mkdir -p -m 700 ~/.ssh')
-        cmd = f'echo {host_info.get("public_key").strip()} >> ~/.ssh/authorized_keys'
-        ssh.exec_command(cmd)
+        public_key = host_info.get('public_key', '').strip()
+        if not public_key:
+            raise RuntimeError('公钥为空')
+        ssh.exec_command('mkdir -p ~/.ssh && chmod 700 ~/.ssh')
+        ssh.exec_command(f"echo '{public_key}' >> ~/.ssh/authorized_keys")
+        ssh.exec_command('sort -u ~/.ssh/authorized_keys -o ~/.ssh/authorized_keys')
         ssh.exec_command('chmod 600 ~/.ssh/authorized_keys')
-        print("公钥已上传至远端SSH服务器")
+        _, stdout, _ = ssh.exec_command('cat ~/.ssh/authorized_keys')
+        written = stdout.read().decode().strip()
+        if public_key not in written:
+            raise RuntimeError('公钥写入验证失败')
+        logger.info("公钥已上传至远端SSH服务器并验证通过")
     except Exception as e:
         raise RuntimeError(f'公钥推送失败：{e}')
     finally:
@@ -377,11 +392,11 @@ def exec_cmd(host_info=None, cmd=None, timeout=5):
             timeout=timeout
         )
         stdin, stdout, stderr = ssh.exec_command(cmd)
-        stdout.channel.settimeout(1)       # 最大等待 1 秒
+        stdout.channel.settimeout(10)       # 最大等待 1 秒
         try:
             stdout.channel.recv_exit_status()  # 阻塞等待命令结束
         except socket.timeout:
-            raise RuntimeError('命令执行超时(>1s)')
+            raise RuntimeError('命令执行超时(>10s)')
 
         # 检查 stderr 是否有错误输出
         err_output = stderr.read().decode()

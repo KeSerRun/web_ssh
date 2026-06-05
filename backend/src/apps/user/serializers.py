@@ -12,6 +12,39 @@ from .models import User
 from apps.host.models import Host
 
 
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    用户自主注册序列化器
+
+    仅接受 username + mobile + password 三个字段。
+    - username: 必填，唯一
+    - mobile:   必填，11 位手机号，唯一
+    - password: 必填，最小 6 位
+    """
+    password = serializers.CharField(
+        write_only=True, required=True,
+        min_length=6,
+        help_text='密码至少 6 位'
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'mobile', 'password']
+
+    def create(self, validated_data):
+        """创建用户：默认激活、无管理权限"""
+        password = validated_data.pop('password')
+        user = User(
+            **validated_data,
+            is_active=True,        # 注册即激活
+            is_staff=False,         # 非员工
+            is_superuser=False,     # 非超级管理员
+        )
+        user.set_password(password)
+        user.save()
+        return user
+
+
 class UserSerializer(serializers.ModelSerializer):
     """
     用户序列化器

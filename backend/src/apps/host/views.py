@@ -9,14 +9,19 @@ API 端点:
 
 所有接口统一返回格式: {"code": <http_status>, "message": "<描述>", "data": <数据|null>}
 """
+import logging
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from .models import Host, HostCategory
 from .serializers import HostSerializer, HostCategorySerializer
 from django.http import FileResponse
 from rest_framework.views import APIView
-from utils.ssh import exec_cmd, upload_file, download_file
+from utils.ssh import exec_cmd, upload_file, download_file, push_public_key, generate_key_pair
 from utils.permissions import IsSuperUser, IsStaff, IsActie, IsActieReadOnly
 from utils.exceptions import APIResponse
+
+logger = logging.getLogger(__name__)
 
 
 class HostViewSet(viewsets.ModelViewSet):
@@ -31,6 +36,44 @@ class HostViewSet(viewsets.ModelViewSet):
     queryset = Host.objects.all().select_related('category')
     serializer_class = HostSerializer
     permission_classes = [IsSuperUser | IsStaff | IsActieReadOnly]
+
+    @action(detail=True, methods=['post'], permission_classes=[IsSuperUser | IsStaff])
+    def repair(self, request, pk=None):
+        """
+        修复主机连接 — 重新推送公钥到远端。
+
+        POST /host/hosts/{id}/repair/
+
+        适用场景: Docker 容器重建后 authorized_keys 丢失。
+        """
+        host = self.get_object()
+        if not host.connect_pwd:
+            return APIResponse(
+                message='该主机缺少连接密码，无法修复，请删除后重新添加',
+                code=400, status=400,
+            )
+        try:
+            # 重新生成密钥对并用密码推送公钥
+            logger.info("生成密钥中...")
+            private, public = generate_key_pair()
+            logger.info("密钥生成成功，推送公钥中...")
+            push_public_key({
+                'ip_addr': host.ip_addr,
+                'port': host.port,
+                'username': host.username,
+                'connect_pwd': host.connect_pwd,
+                'public_key': public,
+            })
+            host.private_key = private
+            host.public_key = public
+            host.status = 1
+            host.save(update_fields=['private_key', 'public_key', 'status'])
+            return APIResponse(message='密钥已重新生成并推送，连接已恢复')
+        except Exception as e:
+            return APIResponse(
+                message=f'修复失败：{e}',
+                code=500, status=500,
+            )
 
 
 class HostCategoryViewSet(viewsets.ModelViewSet):
@@ -86,9 +129,9 @@ class HostFileAPIView(APIView):
                     code=status.HTTP_404_NOT_FOUND,
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            print(f'cmd: {full_cmd}')
+            logger.debug('cmd: %s', full_cmd)
             out = exec_cmd(host_info=host_info, cmd=full_cmd)
-            print(f'out: {out}')
+            logger.debug('out: %s', out)
             return APIResponse(data={'output': out})
         except RuntimeError as e:
             return APIResponse(

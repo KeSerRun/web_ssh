@@ -16,26 +16,21 @@ INSTALLED_APPS = [
 # 异步
 ASGI_APPLICATION = 'apps.asgi.application'
 
-# 通道层：开发阶段用内存或者Redis
-'''
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
-'''
-
+# 通道层：Redis 作为消息队列承载 WebSocket 长连接通信
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": ["redis://:123456@127.0.0.1:6379/0"],   # 默认库 0
-            # 如果 Redis 没有密码
-            # "hosts": ["redis://127.0.0.1:6379/1"],
-            # 或者哨兵/集群
-            # "hosts": [{"host": "127.0.0.1", "port": 6379, "db": 0, "password": "123456"}],
-            "capacity": 1500,      # 单通道最大消息积压
-            "expiry": 10,          # 消息过期秒数
+            "hosts": [{
+                "address": "redis://127.0.0.1:6379/0",
+                "socket_connect_timeout": 5,     # 连接超时 5 秒
+                "socket_timeout": 10,             # 读写超时 10 秒
+                "socket_keepalive": True,         # TCP keepalive 防止空闲断开
+                "retry_on_timeout": True,         # 超时自动重试
+                "health_check_interval": 30,      # 每 30 秒心跳检测
+            }],
+            "capacity": 1500,
+            "expiry": 60,                         # 消息过期 60 秒
         },
     }
 }
@@ -208,6 +203,64 @@ LOGGING = {
         'django.request': {  # 404/500 等
             'handlers': ['error_file', 'console'],
             'level': 'ERROR',
+            'propagate': False,
+        },
+        # 应用日志：SSH 连接、密钥生成、文件操作等
+        'utils.ssh': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.host': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # 禁止 Daphne / Django Channels 重复打印访问日志
+        # 所有 HTTP 访问由自定义 AccessLogMiddleware 统一管理
+        'daphne': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'daphne.server': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'daphne.access': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'daphne.http': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'daphne.http_protocol': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'daphne.ws_protocol': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.channels': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.channels.server': {
+            'handlers': [],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'channels': {
+            'handlers': [],
+            'level': 'WARNING',
             'propagate': False,
         },
         # 兜底：项目代码里 logger.error() 也会进 error.log

@@ -35,16 +35,22 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use((response) => {
     return response;
 }, (error) => {
-    // 跳过 token 验证接口的错误提示（由路由守卫静默处理）
+    // 已没有 token（已登出），不发错误提示
+    const hasToken = !!(sessionStorage.token || localStorage.token);
+
+    const isAuthEndpoint = error.config?.url?.includes('/token/obtain/')
+                        || error.config?.url?.includes('/user/register/');
     const isTokenVerify = error.config?.url?.includes('/token/verify/');
 
-    if (!isTokenVerify) {
+    if (!isTokenVerify && hasToken) {
         switch (error.response?.status) {
             case 400:
                 message.error(error.response?.data?.message || '提交信息有误，请检查后重试');
                 break;
             case 401:
-                message.error('登录已过期，请重新登录');
+                if (!isAuthEndpoint) {
+                    message.error('登录已过期，请重新登录');
+                }
                 break;
             case 403:
                 message.error('没有权限执行此操作');

@@ -125,10 +125,19 @@ function initSocket(host_id) {
     `${settings.host.replace('http', 'ws')}/ws/ssh/${host_id}/`,
     ['jwt', token]
   )
-  socket.onopen = () => term.writeln('\r\n\x1b[32m[ 已连接 ]\x1b[0m\r\n')
+  socket.onopen = () => {
+    term.writeln('\r\n\x1b[32m[ 已连接 ]\x1b[0m\r\n')
+    getDetails()  // 连接成功后刷新主机列表，更新在线状态
+  }
   socket.onmessage = ({ data }) => term.write(atob(data))
-  socket.onclose = () => term.writeln('\r\n\x1b[31m[ 已断开 ]\x1b[0m\r\n')
-  socket.onerror = () => term.writeln('\r\n\x1b[31m[ 连接错误 ]\x1b[0m\r\n')
+  socket.onclose = () => {
+    term.writeln('\r\n\x1b[31m[ 已断开 ]\x1b[0m\r\n')
+    getDetails()
+  }
+  socket.onerror = () => {
+    term.writeln('\r\n\x1b[31m[ 连接错误 ]\x1b[0m\r\n')
+    getDetails()
+  }
 }
 
 /* ========== xterm 终端 ========== */

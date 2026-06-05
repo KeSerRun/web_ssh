@@ -7,9 +7,12 @@
     添加新主机时自动生成 RSA 密钥对并将公钥推送到远程主机，
     实现 SSH 免密登录的自动化配置。
 """
+import logging
 from rest_framework import serializers
 from .models import Host, HostCategory
 from utils.ssh import generate_key_pair, push_public_key, probe_ssh_connect
+
+logger = logging.getLogger(__name__)
 
 
 class HostCategorySerializer(serializers.ModelSerializer):
@@ -93,7 +96,7 @@ class HostSerializer(serializers.ModelSerializer):
 
         if not instance:
             # 新连接：生成密钥对并推送公钥
-            print("生成密钥中...")
+            logger.info("生成密钥中...")
             private, public = generate_key_pair()
             attrs['private_key'] = private
             attrs['public_key'] = public
@@ -101,7 +104,7 @@ class HostSerializer(serializers.ModelSerializer):
             push_public_key(attrs)
         else:
             # 已有连接注册：直接复用密钥对
-            print("该连接链接已经注册")
+            logger.info("该连接已经注册，复用已有密钥对")
             attrs['private_key'] = instance.private_key
             attrs['public_key'] = instance.public_key
 

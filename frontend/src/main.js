@@ -13,9 +13,10 @@ const pinia = createPinia(); // 创建 Pinia 实例
 app.use(pinia); // 绑定 Pinia 状态管理
 app.use(router); // 绑定路由
 app.use(Antd); // 绑定Antd组件库
-app.mount('#app'); // 绑定app
 
 app.config.globalProperties.$icons = Icons
 for (const key in Icons) {
     app.component(key, Icons[key]);
 }
+
+app.mount('#app'); // 挂载应用（必须在所有配置完成之后）

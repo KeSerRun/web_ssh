@@ -17,12 +17,12 @@ import { reactive } from "vue";
  * 如 HomeOutlined、BankOutlined 等。
  */
 const base_list = reactive([
-    { key: 1, name: "展示大厅", icon: "HomeOutlined", link: "home" },
-    { key: 2, name: "资产管理", icon: "BankOutlined", link: "host" },
-    { key: 3, name: "资源分类", icon: "PartitionOutlined", link: "category" },
-    { key: 4, name: "用户管理", icon: "UserOutlined", link: "user" },
-    { key: 5, name: "资源分配", icon: "SwapOutlined", link: "allocation" },
-    { key: 6, name: "测试页面", icon: "ExperimentOutlined", link: "test" },
+    { key: 1, name: "展示大厅", icon: "HomeOutlined", link: "home",         adminOnly: false },
+    { key: 2, name: "资产管理", icon: "BankOutlined", link: "host",        adminOnly: true  },
+    { key: 3, name: "资源分类", icon: "PartitionOutlined", link: "category", adminOnly: true  },
+    { key: 4, name: "用户管理", icon: "UserOutlined", link: "user",        adminOnly: true  },
+    { key: 5, name: "资源分配", icon: "SwapOutlined", link: "allocation",  adminOnly: true  },
+    { key: 6, name: "测试页面", icon: "ExperimentOutlined", link: "test",  adminOnly: false },
 ]);
 
 /**

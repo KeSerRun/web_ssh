@@ -48,6 +48,8 @@ services:
       instance-id: "21"  # 实例编号标签
     ports:
       - "10021:22"  # 映射宿主机 10021 端口到容器 22 端口
+    volumes:
+      - ./ssh-data/21/ssh:/root/.ssh  # 仅持久化 authorized_keys，不影响其他系统文件
 
   # SSH 实例 2（端口 10022）
   ubuntu-22:
@@ -58,6 +60,8 @@ services:
       instance-id: "22"  # 实例编号标签
     ports:
       - "10022:22"  # 映射宿主机 10022 端口到容器 22 端口
+    volumes:
+      - ./ssh-data/22/ssh:/root/.ssh
 
   # SSH 实例 3（端口 10023）
   ubuntu-23:
@@ -68,6 +72,8 @@ services:
       instance-id: "23"  # 实例编号标签
     ports:
       - "10023:22"  # 映射宿主机 10023 端口到容器 22 端口
+    volumes:
+      - ./ssh-data/23/ssh:/root/.ssh
 
   # SSH 实例 4（端口 10024）
   ubuntu-24:
@@ -78,3 +84,5 @@ services:
       instance-id: "24"  # 实例编号标签
     ports:
       - "10024:22"  # 映射宿主机 10024 端口到容器 22 端口
+    volumes:
+      - ./ssh-data/24/ssh:/root/.ssh

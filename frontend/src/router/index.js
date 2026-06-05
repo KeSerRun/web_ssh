@@ -32,6 +32,14 @@ const routes = [
         },
     },
     {
+        path: "/register",
+        name: "Register",
+        component: () => import("../views/Register.vue"),
+        meta: {
+            requiresAuth: false,          // 不需要认证即可访问
+        },
+    },
+    {
         path: "/base",
         name: "Base",
         component: () => import("../views/Base.vue"),
@@ -50,25 +58,25 @@ const routes = [
                 path: "host",
                 name: "Host",
                 component: () => import("../views/Host.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: "category",
                 name: "Category",
                 component: () => import("../views/Category.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: "user",
                 name: "User",
                 component: () => import("../views/User.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: "allocation",
                 name: "Allocation",
                 component: () => import("../views/Allocation.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: "test",
@@ -110,6 +118,17 @@ router.beforeEach(async (to, from, next) => {
             // 有 token：验证（带缓存，30 秒内不重复请求）
             const valid = await authStore.verifyToken();
             if (valid) {
+                // 检查是否需要管理员权限
+                if (to.meta.requiresAdmin) {
+                    if (!authStore.isStaff && !authStore.isSuperuser) {
+                        await authStore.fetchPermissions()
+                    }
+                    if (!authStore.isStaff && !authStore.isSuperuser) {
+                        console.log("权限不足，跳转到展示大厅");
+                        next({ name: "Home" });
+                        return;
+                    }
+                }
                 next();                     // token 有效，放行
             } else {
                 // token 过期且刷新失败 → 清除并跳转登录

@@ -23,9 +23,21 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.getItem('refresh') || localStorage.getItem('refresh') || null
   )
   const username = ref(localStorage.getItem('username') || '')
-  const userId = ref(null)
+  // 从已存储的 JWT token 解码 user_id，避免刷新后 userId 为 null 导致 fetchPermissions 跳过
+  const userId = ref(_decodeUserId())
+  const isStaff = ref(false)       // 员工权限
+  const isSuperuser = ref(false)   // 超级管理员权限
   const lastVerified = ref(0)      // 上次验证成功的时间戳
   const tokenIsValid = ref(null)   // null=未知, true=有效, false=失效
+
+  /** 从已存储的 token 中解码 user_id（无网络请求） */
+  function _decodeUserId() {
+    try {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token')
+      if (token) return jwtDecode(token).user_id
+    } catch {}
+    return null
+  }
 
   // ==================== Getters ====================
   const isAuthenticated = computed(() => !!accessToken.value)
@@ -39,6 +51,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** 登录：获取 token 并持久化 */
   async function login(credentials) {
+    // 先清除所有旧 token，确保不会残留过期凭证
+    localStorage.removeItem('token')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('refresh')
+    accessToken.value = null
+    refreshTokenValue.value = null
+
     const response = await http.post(api.token_obtain, {
       username: credentials.username,
       password: credentials.password,
@@ -66,6 +85,26 @@ export const useAuthStore = defineStore('auth', () => {
 
     lastVerified.value = Date.now()
     tokenIsValid.value = true
+
+    // 获取用户权限信息
+    await fetchPermissions()
+  }
+
+  /** 从 API 获取当前用户的 staff/superuser 权限 */
+  async function fetchPermissions() {
+    if (!userId.value) userId.value = _decodeUserId()
+    if (!userId.value) return
+    try {
+      const res = await http.get(
+        `${api.users}${userId.value}/`,
+        { headers: { Authorization: `Bearer ${accessToken.value}` } }
+      )
+      isStaff.value = res.data.is_staff || false
+      isSuperuser.value = res.data.is_superuser || false
+    } catch {
+      isStaff.value = false
+      isSuperuser.value = false
+    }
   }
 
   /** 退出登录：清除所有状态和持久化存储 */
@@ -74,6 +113,8 @@ export const useAuthStore = defineStore('auth', () => {
     refreshTokenValue.value = null
     username.value = ''
     userId.value = null
+    isStaff.value = false
+    isSuperuser.value = false
     tokenIsValid.value = false
     lastVerified.value = 0
 
@@ -124,8 +165,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     accessToken, refreshTokenValue, username, userId,
+    isStaff, isSuperuser,
     lastVerified, tokenIsValid,
     isAuthenticated, needsVerification,
-    login, logout, verifyToken,
+    login, logout, verifyToken, fetchPermissions,
   }
 })

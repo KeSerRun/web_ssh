@@ -8,6 +8,9 @@
       <a-button @click="updateAll">
         <CloudUploadOutlined /> 批量同步
       </a-button>
+      <a-button @click="repairAll">
+        <ToolOutlined /> 修复连接
+      </a-button>
     </a-space>
   </div>
 
@@ -103,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, toRaw } from 'vue'
 import { httpGET, httpPOST, httpPUT, httpDELETE } from '@/http'
 import { usePagination } from '@/utils/paginatior'
 import { detailsColumns } from '@/utils/table'
@@ -111,7 +114,7 @@ import { detailsForm } from '@/utils/form'
 import { api } from '@/settings'
 import { assignSame, clearItem } from '@/utils/copy'
 import { message } from 'ant-design-vue'
-import { PlusOutlined, CloudUploadOutlined, DownOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CloudUploadOutlined, DownOutlined, ToolOutlined } from '@ant-design/icons-vue'
 
 const { listData, pageData, pagination, handlePageChange, getindex, loading } = usePagination()
 const categoryList = ref([])
@@ -166,6 +169,15 @@ const updateAll = () => {
   }
 }
 
+// 批量修复连接：重新推送公钥（容器重建后 authorized_keys 丢失时使用）
+const repairAll = () => {
+  listData.value.forEach(item => {
+    if (item.id && item.update_status === 1) {
+      httpPOST(`${api.hosts}${item.id}/repair/`, {}, true).catch(() => {})
+    }
+  })
+}
+
 const deleteItem = index => {
   index = getindex(index)
   if (listData.value[index].update_status == 2) {
@@ -192,7 +204,7 @@ const createItem = () => {
   clearItem(detailsForm)
   detailsForm.id = `${count.value + 1}`
   detailsForm.update_status = 2
-  listData.value.splice(0, 0, structuredClone(detailsForm))
+  listData.value.splice(0, 0, structuredClone(toRaw(detailsForm)))
 }
 
 const insertItem = index => {
@@ -200,7 +212,7 @@ const insertItem = index => {
   index = getindex(index)
   detailsForm.id = `${count.value + 1}`
   detailsForm.update_status = 2
-  listData.value.splice(index + 1, 0, structuredClone(detailsForm))
+  listData.value.splice(index + 1, 0, structuredClone(toRaw(detailsForm)))
 }
 
 const rowClassName = (record) => {

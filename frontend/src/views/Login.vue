@@ -69,6 +69,12 @@
           </a-button>
         </a-form-item>
       </a-form>
+
+      <!-- 跳转注册 -->
+      <div class="login-register-link">
+        没有账号？
+        <router-link to="/register" class="register-link">立即注册</router-link>
+      </div>
     </div>
 
     <!-- 底部版权 -->
@@ -90,7 +96,8 @@ import router from '@/router'
 const authStore = useAuthStore()
 const loading = ref(false)
 
-// 回填上次登录的用户名
+// 回填上次登录的用户名，并清空密码（防止残留旧密码导致 401）
+loginForm.password = ''
 if (localStorage.getItem('username')) {
   loginForm.username = localStorage.getItem('username')
 }
@@ -253,6 +260,20 @@ const rules = {
 
 .login-btn:active {
   transform: translateY(0);
+}
+
+/* ========== 注册链接 ========== */
+.login-register-link {
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-xs);
+}
+
+.register-link {
+  color: var(--color-primary);
+  font-weight: 500;
+  margin-left: 4px;
 }
 
 /* ========== 页脚 ========== */

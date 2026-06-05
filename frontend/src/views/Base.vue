@@ -21,7 +21,7 @@
         class="sider-menu"
       >
         <a-menu-item
-          v-for="item in base_list"
+          v-for="item in visibleMenu"
           :key="item.key"
           class="sider-menu-item"
         >
@@ -77,11 +77,7 @@
 
         <!-- 页面内容 -->
         <div class="content-body">
-          <router-view v-slot="{ Component }">
-            <transition name="page-slide" mode="out-in">
-              <component :is="Component" />
-            </transition>
-          </router-view>
+          <router-view />
         </div>
       </a-layout-content>
 
@@ -95,7 +91,7 @@
 
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { createVNode } from 'vue'
 import { Modal } from 'ant-design-vue'
 import {
@@ -111,6 +107,16 @@ const authStore = useAuthStore()
 const collapsed = ref(false)
 const logoText = ref('Web SSH')
 const selectedKeys = ref([1])
+
+// 根据用户权限过滤侧边栏菜单
+const visibleMenu = computed(() =>
+  base_list.filter(item => !item.adminOnly || authStore.isStaff || authStore.isSuperuser)
+)
+
+// 挂载时获取用户权限
+onMounted(() => {
+  authStore.fetchPermissions()
+})
 
 // 持久化当前选中的菜单项
 if (sessionStorage.getItem('selectedKeys')) {
