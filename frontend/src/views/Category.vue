@@ -1,28 +1,34 @@
 <template>
-  <!-- 工具栏 -->
-  <div class="page-toolbar">
-    <a-button @click="createItem" type="primary">
-      <PlusOutlined /> 新建分类
-    </a-button>
+  <!-- 页面头部 -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-icon page-icon--green"><PartitionOutlined /></div>
+      <div>
+        <h2 class="page-title">资源分类</h2>
+        <p class="page-subtitle">管理主机分类标签，便于按类别组织和筛选资产</p>
+      </div>
+    </div>
+    <div class="page-header-right">
+      <a-button @click="createItem" type="primary"><PlusOutlined /> 新建分类</a-button>
+    </div>
   </div>
 
-  <!-- 加载状态 -->
-  <a-spin :spinning="loading" tip="正在加载数据...">
-    <!-- 空数据提示 -->
-    <a-empty
-      v-if="!loading && listData.value.length === 0"
-      description="暂无分类数据"
-    />
-
-    <!-- 数据表格 -->
-    <a-table
-      v-else
-      :columns="categoryColumns"
-      :data-source="pageData.value"
-      :pagination="pagination"
-      size="middle"
-      @change="handlePageChange"
-    >
+  <!-- 数据区 -->
+  <div class="table-card">
+    <a-spin :spinning="loading" tip="正在加载数据...">
+      <a-empty
+        v-if="!loading && listData.value.length === 0"
+        description="暂无分类数据"
+      />
+      <a-table
+        v-else
+        :columns="categoryColumns"
+        :data-source="pageData.value"
+        :pagination="pagination"
+        :row-key="record => record.id"
+        size="middle"
+        @change="handlePageChange"
+      >
       <template #bodyCell="{ column, index }">
         <template v-if="column.key === 'action'">
           <a-space :size="4">
@@ -33,17 +39,18 @@
               cancel-text="取消"
               @confirm="deleteItem(index)"
             >
-              <a-button type="link" danger size="small">删除</a-button>
+              <a-button type="link" danger size="small"><DeleteOutlined /> 删除</a-button>
             </a-popconfirm>
-            <a-button type="link" size="small" @click="modifyItem(index)">编辑</a-button>
+            <a-button type="link" size="small" @click="modifyItem(index)"><EditOutlined /> 编辑</a-button>
           </a-space>
         </template>
         <template v-else>
-          <a-input readonly size="small" v-model:value="pageData.value[index][column.key]" />
+          <span class="cell-text">{{ pageData.value[index][column.key] }}</span>
         </template>
       </template>
     </a-table>
   </a-spin>
+  </div>
 
   <!-- 编辑/新建弹窗 -->
   <a-modal
@@ -53,6 +60,8 @@
     ok-text="确认"
     cancel-text="取消"
     :destroy-on-close="true"
+    width="400px"
+    :confirm-loading="submitting"
   >
     <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }">
       <a-form-item label="分类名称">
@@ -71,12 +80,13 @@ import { categoryForm } from '@/utils/form'
 import { assignSame, clearItem } from '@/utils/copy'
 import { api } from '@/settings'
 import { message } from 'ant-design-vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined, PartitionOutlined } from '@ant-design/icons-vue'
 
 const { listData, pageData, pagination, handlePageChange, getindex, loading } = usePagination()
 const open = ref(false)
 const operation = ref(null)
 const modifyid = ref(null)
+const submitting = ref(false)
 
 const getCategory = async () => {
   loading.value = true
@@ -111,16 +121,16 @@ const modifyItem = (index) => {
 }
 
 const submitOk = () => {
+  submitting.value = true
+  const done = () => {
+    getCategory()
+    open.value = false
+    submitting.value = false
+  }
   if (operation.value == 'create') {
-    httpPOST(api.category, categoryForm).then(() => {
-      getCategory()
-      open.value = false
-    })
+    httpPOST(api.category, categoryForm).then(done).catch(() => { submitting.value = false })
   } else if (operation.value == 'modify') {
-    httpPUT(api.category, listData.value[modifyid.value].id, categoryForm).then(() => {
-      getCategory()
-      open.value = false
-    })
+    httpPUT(api.category, listData.value[modifyid.value].id, categoryForm).then(done).catch(() => { submitting.value = false })
   }
 }
 
@@ -130,7 +140,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-toolbar {
-  margin-bottom: var(--space-md);
-}
 </style>

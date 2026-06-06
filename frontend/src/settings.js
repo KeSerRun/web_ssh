@@ -28,4 +28,7 @@ export const api = {
     // 主机管理
     'hosts': host + '/host/hosts/',              // 主机 CRUD
     'category': host + '/host/category/',        // 主机分类 CRUD
+
+    // 主机在线探测（需拼接 ID，如 hostProbe(5) → /host/hosts/5/probe/）
+    hostProbe: (id) => host + `/host/hosts/${id}/probe/`,
 }

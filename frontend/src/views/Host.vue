@@ -1,41 +1,46 @@
 <template>
-  <!-- 工具栏 -->
-  <div class="page-toolbar">
-    <a-space :size="12">
-      <a-button @click="createItem" type="primary">
-        <PlusOutlined /> 新建主机
-      </a-button>
-      <a-button @click="updateAll">
-        <CloudUploadOutlined /> 批量同步
-      </a-button>
-      <a-button @click="repairAll">
-        <ToolOutlined /> 修复连接
-      </a-button>
-    </a-space>
+  <!-- 页面头部 -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-icon page-icon--blue"><BankOutlined /></div>
+      <div>
+        <h2 class="page-title">资产管理</h2>
+        <p class="page-subtitle">管理 SSH 远程主机，支持新增、编辑、删除和连接修复</p>
+      </div>
+    </div>
+    <div class="page-header-right">
+      <a-space :size="8">
+        <a-button @click="createItem" type="primary"><PlusOutlined /> 新建主机</a-button>
+        <a-button @click="updateAll"><CloudUploadOutlined /> 批量同步</a-button>
+        <a-button @click="repairAll" danger><ToolOutlined /> 修复连接</a-button>
+        <a-button @click="openCategoryModal" type="dashed"><PartitionOutlined /> 管理分类</a-button>
+      </a-space>
+    </div>
   </div>
 
-  <!-- 加载状态 -->
-  <a-spin :spinning="loading" tip="正在加载数据...">
-    <!-- 空数据提示 -->
-    <a-empty
-      v-if="!loading && listData.value.length === 0"
-      description="暂无主机数据"
-    />
-
-    <!-- 数据表格 -->
-    <a-table
-      v-else
-      :columns="detailsColumns"
-      :data-source="pageData.value"
-      :pagination="pagination"
-      :row-class-name="rowClassName"
-      size="middle"
-      @change="handlePageChange"
-    >
+  <!-- 数据区 -->
+  <div class="table-card">
+    <a-spin :spinning="loading" tip="正在加载数据...">
+      <a-empty
+        v-if="!loading && listData.value.length === 0"
+        description="暂无主机数据"
+      />
+      <a-table
+        v-else
+        :columns="detailsColumns"
+        :data-source="pageData.value"
+        :pagination="pagination"
+        :row-key="record => record.id"
+        :row-class-name="rowClassName"
+        size="middle"
+        @change="handlePageChange"
+      >
       <template #bodyCell="{ column, index }">
         <!-- 操作列 -->
         <template v-if="column.key === 'action'">
-          <a-space :size="4">
+          <a-space :size="8">
+            <a-button type="link" size="small" @click="updateItem(index)"><SaveOutlined /> 保存</a-button>
+            <a-button type="link" size="small" @click="insertItem(index)"><PlusOutlined /> 插入</a-button>
             <a-popconfirm
               v-if="pageData.value.length"
               title="确定删除？"
@@ -43,10 +48,8 @@
               cancel-text="取消"
               @confirm="deleteItem(index)"
             >
-              <a-button type="link" danger size="small">删除</a-button>
+              <a-button type="link" danger size="small"><DeleteOutlined /> 删除</a-button>
             </a-popconfirm>
-            <a-button type="link" size="small" @click="insertItem(index)">插入</a-button>
-            <a-button type="link" size="small" @click="updateItem(index)">保存</a-button>
           </a-space>
         </template>
 
@@ -103,18 +106,70 @@
       </template>
     </a-table>
   </a-spin>
+  </div>
+
+  <!-- 管理分类弹窗 -->
+  <a-modal
+    v-model:open="cateModalOpen"
+    title="管理分类"
+    :footer="null"
+    width="600px"
+    :destroy-on-close="true"
+  >
+    <div style="margin-bottom: var(--space-md);">
+      <a-button @click="cateCreate" type="primary" size="small"><PlusOutlined /> 新建分类</a-button>
+    </div>
+    <a-spin :spinning="cateLoading" tip="加载中...">
+      <a-empty v-if="!cateLoading && cateListData.value.length === 0" description="暂无分类" />
+      <a-table
+        v-else
+        :columns="categoryColumns"
+        :data-source="catePageData.value"
+        :pagination="catePagination"
+        :row-key="record => record.id"
+        size="small"
+        @change="cateHandlePageChange"
+      >
+        <template #bodyCell="{ column, index }">
+          <template v-if="column.key === 'action'">
+            <a-space :size="4">
+              <a-popconfirm title="确定删除？" ok-text="确定" cancel-text="取消" @confirm="cateDelete(index)">
+                <a-button type="link" danger size="small"><DeleteOutlined /></a-button>
+              </a-popconfirm>
+              <a-button type="link" size="small" @click="cateModify(index)"><EditOutlined /></a-button>
+            </a-space>
+          </template>
+          <template v-else>
+            <span class="cell-text">{{ catePageData.value[index][column.key] }}</span>
+          </template>
+        </template>
+      </a-table>
+    </a-spin>
+
+    <!-- 分类编辑小弹窗 -->
+    <a-modal
+      v-model:open="cateFormOpen"
+      :title="cateOp === 'create' ? '新建分类' : '编辑分类'"
+      @ok="cateSubmit"
+      ok-text="确认" cancel-text="取消"
+      width="360px"
+      :confirm-loading="cateSubmitting"
+    >
+      <a-input v-model:value="categoryForm.name" placeholder="请输入分类名称" />
+    </a-modal>
+  </a-modal>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, toRaw } from 'vue'
 import { httpGET, httpPOST, httpPUT, httpDELETE } from '@/http'
 import { usePagination } from '@/utils/paginatior'
-import { detailsColumns } from '@/utils/table'
-import { detailsForm } from '@/utils/form'
+import { detailsColumns, categoryColumns } from '@/utils/table'
+import { detailsForm, categoryForm } from '@/utils/form'
 import { api } from '@/settings'
 import { assignSame, clearItem } from '@/utils/copy'
 import { message } from 'ant-design-vue'
-import { PlusOutlined, CloudUploadOutlined, DownOutlined, ToolOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CloudUploadOutlined, DownOutlined, ToolOutlined, DeleteOutlined, SaveOutlined, BankOutlined, EditOutlined, PartitionOutlined } from '@ant-design/icons-vue'
 
 const { listData, pageData, pagination, handlePageChange, getindex, loading } = usePagination()
 const categoryList = ref([])
@@ -156,10 +211,28 @@ const updateItem = (index) => {
   let payload = assignSame(listData.value[index], detailsForm)
   delete payload['update_status']
   delete payload['id']
+
+  // 校验必填字段
+  if (!payload.ip_addr) return message.warning('IP 地址不能为空')
+  if (!payload.connect_pwd) return message.warning('连接密码不能为空')
+  if (!payload.category || payload.category === 0) return message.warning('请选择主机分类')
+
+  const fieldLabels = {
+    ip_addr: 'IP地址', port: '端口', username: '用户名', connect_pwd: '连接验证',
+    name: '主机名称', category: '分类', remark: '备注',
+  }
+
+  const onErr = (err) => {
+    // http 拦截器已显示 400 错误，此处仅处理其他状态码或网络错误
+    if (!err?.response) {
+      message.error('网络连接失败，请检查后端服务')
+    }
+  }
+
   if (listData.value[index].update_status == 2) {
-    httpPOST(api.hosts, payload).then(() => { listData.value[index].update_status = 1 })
+    httpPOST(api.hosts, payload, false).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
   } else if (listData.value[index].update_status == 3) {
-    httpPUT(api.hosts, listData.value[index].id, payload).then(() => { listData.value[index].update_status = 1 })
+    httpPUT(api.hosts, listData.value[index].id, payload, false).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
   }
 }
 
@@ -204,6 +277,15 @@ const createItem = () => {
   clearItem(detailsForm)
   detailsForm.id = `${count.value + 1}`
   detailsForm.update_status = 2
+  detailsForm.ip_addr = '127.0.0.1'
+  detailsForm.port = 22
+  detailsForm.username = 'root'
+  detailsForm.connect_pwd = ''
+  detailsForm.name = 'host-' + Math.random().toString(36).slice(2, 8)
+  if (categoryList.value.length) {
+    detailsForm.category = categoryList.value[0].id
+    detailsForm.category_name = categoryList.value[0].name
+  }
   listData.value.splice(0, 0, structuredClone(toRaw(detailsForm)))
 }
 
@@ -212,6 +294,15 @@ const insertItem = index => {
   index = getindex(index)
   detailsForm.id = `${count.value + 1}`
   detailsForm.update_status = 2
+  detailsForm.ip_addr = '127.0.0.1'
+  detailsForm.port = 22
+  detailsForm.username = 'root'
+  detailsForm.connect_pwd = ''
+  detailsForm.name = 'host-' + Math.random().toString(36).slice(2, 8)
+  if (categoryList.value.length) {
+    detailsForm.category = categoryList.value[0].id
+    detailsForm.category_name = categoryList.value[0].name
+  }
   listData.value.splice(index + 1, 0, structuredClone(toRaw(detailsForm)))
 }
 
@@ -221,6 +312,71 @@ const rowClassName = (record) => {
   return ''
 }
 
+// ==================== 分类管理（内嵌弹窗） ====================
+const {
+  listData: cateListData, pageData: catePageData,
+  pagination: catePagination, handlePageChange: cateHandlePageChange,
+  getindex: cateGetIndex, loading: cateLoading,
+} = usePagination()
+const cateModalOpen = ref(false)
+const cateFormOpen = ref(false)
+const cateOp = ref('create')
+const cateModId = ref(null)
+const cateSubmitting = ref(false)
+
+const openCategoryModal = () => {
+  cateModalOpen.value = true
+  getCategoryList()
+}
+
+const getCategoryList = async () => {
+  cateLoading.value = true
+  try {
+    const res = await httpGET(api.category)
+    cateListData.value = res.data
+  } catch {
+    message.error('分类数据加载失败')
+  } finally {
+    cateLoading.value = false
+  }
+}
+
+const cateCreate = () => {
+  clearItem(categoryForm)
+  cateOp.value = 'create'
+  cateFormOpen.value = true
+}
+
+const cateModify = (index) => {
+  clearItem(categoryForm)
+  assignSame(cateListData.value[cateGetIndex(index)], categoryForm)
+  cateOp.value = 'modify'
+  cateModId.value = cateGetIndex(index)
+  cateFormOpen.value = true
+}
+
+const cateSubmit = () => {
+  cateSubmitting.value = true
+  const done = () => {
+    getCategoryList()
+    getCategory()  // 同步更新主机表格中的分类下拉选项
+    cateFormOpen.value = false
+    cateSubmitting.value = false
+  }
+  if (cateOp.value === 'create') {
+    httpPOST(api.category, categoryForm).then(done).catch(() => { cateSubmitting.value = false })
+  } else {
+    httpPUT(api.category, cateListData.value[cateModId.value].id, categoryForm).then(done).catch(() => { cateSubmitting.value = false })
+  }
+}
+
+const cateDelete = (index) => {
+  httpDELETE(api.category, cateListData.value[cateGetIndex(index)].id).then(() => {
+    getCategoryList()
+    getCategory()  // 同步更新主机表格中的分类下拉选项
+  })
+}
+
 onMounted(() => {
   getDetails()
   getCategory()
@@ -228,13 +384,24 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-toolbar {
-  margin-bottom: var(--space-md);
-}
-
 .category-select-btn {
-  min-width: 100px;
+  width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
   text-align: left;
+  overflow: hidden;
+}
+.category-select-btn :deep(span) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.category-select-btn :deep(.anticon) {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--color-text-quaternary);
 }
 
 /* 状态圆点指示器 */
@@ -251,10 +418,10 @@ onMounted(() => {
 
 /* 行状态高亮 */
 :deep(.row-new) td {
-  background: #fff2f0 !important;
+  background: var(--color-row-new) !important;
 }
 
 :deep(.row-modified) td {
-  background: #fffbe6 !important;
+  background: var(--color-row-modified) !important;
 }
 </style>

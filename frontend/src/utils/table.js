@@ -25,7 +25,7 @@
  * 主机分类表格列
  */
 const categoryColumns = [
-    { title: '分类名称', dataIndex: 'category_name', key: 'name', ellipsis: true },
+    { title: '分类名称', dataIndex: 'name', key: 'name', ellipsis: true, width: 200 },
     { title: '操作', key: 'action', width: 160, dataIndex: 'action', scopedSlots: { customRender: 'action' } }
 ];
 
@@ -34,13 +34,13 @@ const categoryColumns = [
  */
 const detailsColumns = [
     { title: '状态', dataIndex: 'update_status', key: 'update_status', width: 60 },
-    { title: '类别', dataIndex: 'category_name', key: 'category_name', width: 120, ellipsis: true },
-    { title: '主机名称', dataIndex: 'name', key: 'name', width: 180, ellipsis: true },
-    { title: '账户', dataIndex: 'username', key: 'username', width: 100, ellipsis: true },
-    { title: '地址', dataIndex: 'ip_addr', key: 'ip_addr', width: 180, ellipsis: true },
-    { title: '端口', dataIndex: 'port', key: 'port', width: 80 },
+    { title: '类别', dataIndex: 'category_name', key: 'category_name', width: 140, ellipsis: true },
+    { title: '主机名称', dataIndex: 'name', key: 'name', width: 140, ellipsis: true },
+    { title: '账户', dataIndex: 'username', key: 'username', width: 120, ellipsis: true },
+    { title: 'IP地址', dataIndex: 'ip_addr', key: 'ip_addr', width: 130, ellipsis: true },
+    { title: '端口', dataIndex: 'port', key: 'port', width: 90 },
     { title: '连接密码', dataIndex: 'connect_pwd', key: 'connect_pwd', width: 180 },
-    { title: '备注信息', dataIndex: 'remark', key: 'remark', ellipsis: true },
+    { title: '备注信息', dataIndex: 'remark', key: 'remark', width: 120, ellipsis: true },
     { title: '操作', key: 'action', width: 180, dataIndex: 'action', scopedSlots: { customRender: 'action' } }
 ];
 
@@ -48,7 +48,8 @@ const detailsColumns = [
  * 用户管理表格列
  */
 const userColumns = [
-    { title: '用户名', dataIndex: 'username', key: 'username', width: 180, ellipsis: true },
+    { title: '头像', dataIndex: 'avatar', key: 'avatar', width: 60 },
+    { title: '用户名', dataIndex: 'username', key: 'username', width: 160, ellipsis: true },
     { title: '手机号', dataIndex: 'mobile', key: 'mobile', width: 160, ellipsis: true },
     { title: '激活状态', dataIndex: 'is_active', key: 'is_active', width: 100 },
     { title: '普通员工', dataIndex: 'is_staff', key: 'is_staff', width: 100 },
@@ -65,16 +66,16 @@ const userHostColumns = [
     { title: '激活状态', dataIndex: 'is_active', key: 'is_active', width: 90 },
     { title: '普通员工', dataIndex: 'is_staff', key: 'is_staff', width: 90 },
     { title: '超级管理员', dataIndex: 'is_superuser', key: 'is_superuser', width: 100 },
-    { title: '主机列表', dataIndex: 'hosts', key: 'hosts' },
+    { title: '主机列表', dataIndex: 'hosts', key: 'hosts', width: 200 },
 ];
 
 /**
  * 简化主机信息列 —— 用于下拉选择器等场景
  */
 const hostSimpleColumns = [
-    { title: '主机名称', dataIndex: 'title', ellipsis: true },
-    { title: '主机分类', dataIndex: 'category', ellipsis: true },
-    { title: '主机地址', dataIndex: 'ip_addr', ellipsis: true },
+    { title: '主机名称', dataIndex: 'hostName', ellipsis: true, width: 150 },
+    { title: '主机分类', dataIndex: 'category', ellipsis: true, width: 120 },
+    { title: '主机地址', dataIndex: 'ip_addr', ellipsis: true, width: 200 },
 ];
 
 /**

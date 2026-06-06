@@ -12,8 +12,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
+from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import UserSerializer, RegisterSerializer
-from utils.permissions import IsSuperUser, IsStaff, IsActieReadOnly
+from utils.permissions import IsSuperUser, IsStaff, IsActie, IsActieReadOnly
 
 User = get_user_model()
 
@@ -56,6 +57,32 @@ class UserViewSet(viewsets.ModelViewSet):
         员工       → 可管理普通用户（不能操作 superuser/staff）
         激活用户   → 只读
     """
-    queryset = User.objects.all()
+    queryset = User.objects.all().prefetch_related('hosts')
     serializer_class = UserSerializer
     permission_classes = [IsSuperUser | IsStaff | IsActieReadOnly]
+
+    @action(
+        detail=True, methods=['post', 'put'],
+        parser_classes=[MultiPartParser, FormParser],
+        permission_classes=[IsActie],
+    )
+    def avatar(self, request, pk=None):
+        """上传用户头像 — POST /user/users/{id}/avatar/"""
+        user = self.get_object()
+        # 只允许修改自己的头像（管理员除外）
+        if not (request.user.is_staff or request.user.is_superuser) and request.user.id != user.id:
+            return Response(
+                {'message': '只能修改自己的头像'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        avatar_file = request.FILES.get('avatar')
+        if not avatar_file:
+            return Response(
+                {'message': '请选择要上传的图片'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.avatar = avatar_file
+        user.save(update_fields=['avatar'])
+        return Response({'avatar': user.avatar.url if user.avatar else None})

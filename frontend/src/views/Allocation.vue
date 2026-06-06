@@ -1,32 +1,37 @@
 <template>
   <div class="allocation-page">
-    <!-- 顶部操作区 -->
-    <div class="page-toolbar">
-      <a-space :size="12">
-        <a-button type="primary" @click="selectUser">
-          <UserOutlined /> 选择用户
-        </a-button>
-        <a-tag color="blue" class="section-label">已选用户列表</a-tag>
-      </a-space>
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="page-icon page-icon--orange"><SwapOutlined /></div>
+        <div>
+          <h2 class="page-title">资源分配</h2>
+          <p class="page-subtitle">将主机资源分配给指定用户，控制访问权限</p>
+        </div>
+      </div>
+      <div class="page-header-right">
+        <a-space :size="8">
+          <a-button type="primary" @click="selectUser"><UserOutlined /> 选择用户</a-button>
+        </a-space>
+      </div>
     </div>
 
-    <!-- 加载状态 -->
-    <a-spin :spinning="loading" tip="正在加载数据...">
-      <!-- 空数据提示 -->
-      <a-empty
-        v-if="!loading && listData.value.length === 0"
-        description="请先选择用户"
-      />
-
-      <!-- 用户列表 -->
-      <a-table
-        v-else
-        :columns="userHostColumns"
-        :data-source="pageData.value"
-        :pagination="pagination"
-        size="middle"
-        @change="handlePageChange"
-      >
+    <!-- 用户列表区 -->
+    <div class="table-card">
+      <a-spin :spinning="loading" tip="正在加载数据...">
+        <a-empty
+          v-if="!loading && listData.value.length === 0"
+          description="请先选择用户"
+        />
+        <a-table
+          v-else
+          :columns="userHostColumns"
+          :data-source="pageData.value"
+          :pagination="pagination"
+          :row-key="record => record.id"
+          size="middle"
+          @change="handlePageChange"
+        >
         <template #bodyCell="{ column, index }">
           <template v-if="column.key === 'username' || column.key === 'mobile'">
             <a-input readonly size="small" v-model:value="pageData.value[index][column.key]" />
@@ -44,52 +49,60 @@
             </a-list>
           </template>
           <template v-else>
-            <a-switch disabled size="small" v-model:checked="pageData.value[index][column.key]" />
+            <CheckCircleFilled v-if="pageData.value[index][column.key]" style="color: #52c41a; font-size: 16px;" />
+            <CloseCircleFilled v-else style="color: #d9d9d9; font-size: 16px;" />
           </template>
         </template>
       </a-table>
     </a-spin>
+    </div>
 
     <!-- 分配操作区 -->
     <div class="transfer-section">
-      <a-space :size="12" class="mb-md">
-        <a-button type="primary" @click="submitUser" :disabled="!listData.value.length">
-          <SwapOutlined /> 批量分配
-        </a-button>
-        <a-tag color="green" class="section-label">主机资源分配</a-tag>
-      </a-space>
+      <div class="table-card" style="padding: var(--space-md) var(--space-lg);">
+        <a-space :size="12" style="margin-bottom: var(--space-md);">
+          <a-button type="primary" @click="submitUser" :disabled="!listData.value.length" class="ant-btn-color-success">
+            <SwapOutlined /> 批量分配
+          </a-button>
+        </a-space>
 
-      <a-transfer
-        v-model:target-keys="targetKeys"
-        :data-source="mockData"
-        :show-search="true"
-        :show-select-all="true"
-        :filter-option="(inputValue, item) => item.title.indexOf(inputValue) !== -1"
-        @change="onChange"
-        class="host-transfer"
-      >
-        <template #children="{
-          direction, filteredItems, selectedKeys,
-          disabled: listDisabled, onItemSelectAll, onItemSelect,
-        }">
-          <a-table
-            :row-selection="getRowSelection({
-              disabled: listDisabled,
-              selectedKeys, onItemSelectAll, onItemSelect,
-            })"
-            :columns="direction === 'left' ? leftColumns : rightColumns"
-            :data-source="filteredItems"
-            size="small"
-            :style="{ pointerEvents: listDisabled ? 'none' : undefined }"
-            :custom-row="({ key, disabled: itemDisabled }) => ({
-              onClick: () => {
-                if (itemDisabled || listDisabled) return
-                onItemSelect(key, !selectedKeys.includes(key))
-              },
-            })"
-          />
-        </template>
-      </a-transfer>
+        <a-transfer
+          v-model:target-keys="targetKeys"
+          :data-source="mockData"
+          :show-search="true"
+          :show-select-all="true"
+          :filter-option="(inputValue, item) => item.hostName.includes(inputValue)"
+          :titles="['可分配主机', '已分配主机']"
+          :operations="['', '']"
+          :locale="{ itemUnit: '台', itemsUnit: '台' }"
+          @change="onChange"
+          :list-style="{ width: '100%', flex: 1, height: '320px' }"
+          class="host-transfer"
+        >
+          <template #children="{
+            direction, filteredItems, selectedKeys,
+            disabled: listDisabled, onItemSelectAll, onItemSelect,
+          }">
+            <a-table
+              :row-selection="getRowSelection({
+                disabled: listDisabled,
+                selectedKeys, onItemSelectAll, onItemSelect,
+              })"
+              :columns="direction === 'left' ? leftColumns : rightColumns"
+              :data-source="filteredItems"
+              :row-key="record => String(record.key)"
+              size="small"
+              :style="{ pointerEvents: listDisabled ? 'none' : undefined }"
+              :custom-row="({ key, disabled: itemDisabled }) => ({
+                onClick: () => {
+                  if (itemDisabled || listDisabled) return
+                  onItemSelect(key, !selectedKeys.includes(key))
+                },
+              })"
+            />
+          </template>
+        </a-transfer>
+      </div>
     </div>
 
     <!-- 选择用户弹窗 -->
@@ -99,7 +112,8 @@
       @ok="selectOk"
       ok-text="确认选择"
       cancel-text="取消"
-      width="520px"
+      width="480px"
+      :confirm-loading="false"
     >
       <div class="select-header">
         <a-checkbox
@@ -112,13 +126,16 @@
         <a-input-search
           v-model:value="searchValue"
           placeholder="搜索用户…"
-          style="width: 200px"
           @search="onSearch"
+          allow-clear
+          size="small"
+          style="width: 180px;"
         />
       </div>
       <a-divider style="margin: var(--space-sm) 0;" />
       <div class="select-list">
         <a-checkbox-group v-model:value="state.checkedList" :options="userOptions" />
+        <a-empty v-if="!userOptions.length" description="未找到匹配的用户" :image-style="{ height: '40px' }" />
       </div>
     </a-modal>
   </div>
@@ -134,7 +151,7 @@ import { assignSame, union } from '@/utils/copy'
 import { findSimilarStrings } from '@/utils/search'
 import { api } from '@/settings'
 import { message } from 'ant-design-vue'
-import { UserOutlined, SwapOutlined } from '@ant-design/icons-vue'
+import { UserOutlined, SwapOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons-vue'
 
 const { listData, pageData, pagination, handlePageChange, loading } = usePagination()
 let user = ref([])
@@ -170,9 +187,21 @@ const getRowSelection = ({ disabled, selectedKeys, onItemSelectAll, onItemSelect
 }
 
 // 选择用户
-const selectUser = () => {
-  getUser()
-  open.value = true
+const selectUser = async () => {
+  loading.value = true
+  try {
+    await getUser()
+    state.checkedList = state.checkedAllList = []
+    state.checkAll = false
+    state.indeterminate = false
+    userOptions.value = userTotalOptions.value || []
+    searchValue.value = ''
+    open.value = true
+  } catch {
+    message.error('加载用户数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const selectOk = () => {
@@ -188,7 +217,7 @@ const resetMock = () => {
   for (let i = 0; i < hosts.value.length; i++) {
     mockData.value.push({
       key: String(hosts.value[i].id),
-      title: hosts.value[i].name,
+      hostName: hosts.value[i].name,
       category: getCategoryName(hosts.value[i].category),
       ip_addr: `${hosts.value[i].username}@${hosts.value[i].ip_addr}:${hosts.value[i].port}`,
     })
@@ -289,39 +318,23 @@ onMounted(() => {
 
 <style scoped>
 .allocation-page {
-  /* container */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-.page-toolbar {
-  margin-bottom: var(--space-md);
-}
-
-.section-label {
-  line-height: 32px;
-  height: 32px;
-  font-size: var(--font-size-sm);
-}
 
 /* 主机列表 */
 .host-list {
-  height: 100px;
+  max-height: 160px;
+  min-height: 60px;
   overflow-y: auto;
   border-radius: var(--radius-sm);
 }
 
 .host-list-item {
-  height: 28px !important;
-  padding: 2px 8px !important;
+  padding: 2px 8px;
   font-size: var(--font-size-sm);
-}
-
-/* 穿梭框区域 */
-.transfer-section {
-  margin-top: var(--space-lg);
-}
-
-.host-transfer {
-  margin-top: var(--space-md);
 }
 
 /* 选择用户弹窗 */
@@ -332,8 +345,22 @@ onMounted(() => {
 }
 
 .select-list {
-  height: 200px;
+  max-height: 260px;
   overflow-y: auto;
   padding: var(--space-sm) 0;
+}
+.select-list :deep(.ant-checkbox-wrapper) {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  margin-left: 0 !important;
+}
+.select-list :deep(.ant-checkbox-wrapper:hover) {
+  background: var(--color-primary-bg);
+}
+.select-list :deep(.ant-checkbox-group) {
+  display: flex;
+  flex-direction: column;
 }
 </style>

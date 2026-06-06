@@ -1,20 +1,18 @@
 <!--
   项目根组件
   -----------
-  使用 <router-view> 渲染当前路由对应的页面组件。
-  通过 Vue Router 的路由级过渡动画实现页面切换效果。
+  全局 ConfigProvider 提供中文本地化，所有 Ant Design 组件默认显示中文。
 -->
-<script setup>
-</script>
-
 <template>
-  <router-view v-slot="{ Component, route }">
-    <transition :name="route.meta.transition || 'page-fade'" mode="out-in">
-      <component :is="Component" />
-    </transition>
-  </router-view>
+  <a-config-provider :locale="zhCN">
+    <router-view v-slot="{ Component, route }">
+      <transition :name="route.meta.transition || 'page-fade'">
+        <component :is="Component" />
+      </transition>
+    </router-view>
+  </a-config-provider>
 </template>
 
-<style scoped>
-/* scoped 中的所有样式仅作用于当前组件 */
-</style>
+<script setup>
+import zhCN from 'ant-design-vue/es/locale/zh_CN'
+</script>

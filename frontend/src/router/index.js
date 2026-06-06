@@ -52,37 +52,31 @@ const routes = [
                 path: "home",
                 name: "Home",
                 component: () => import("../views/Home.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, transition: 'page-slide' }
             },
             {
                 path: "host",
                 name: "Host",
                 component: () => import("../views/Host.vue"),
-                meta: { requiresAuth: true, requiresAdmin: true }
-            },
-            {
-                path: "category",
-                name: "Category",
-                component: () => import("../views/Category.vue"),
-                meta: { requiresAuth: true, requiresAdmin: true }
+                meta: { requiresAuth: true, requiresAdmin: true, transition: 'page-slide' }
             },
             {
                 path: "user",
                 name: "User",
                 component: () => import("../views/User.vue"),
-                meta: { requiresAuth: true, requiresAdmin: true }
+                meta: { requiresAuth: true, requiresAdmin: true, transition: 'page-slide' }
             },
             {
                 path: "allocation",
                 name: "Allocation",
                 component: () => import("../views/Allocation.vue"),
-                meta: { requiresAuth: true, requiresAdmin: true }
+                meta: { requiresAuth: true, requiresAdmin: true, transition: 'page-slide' }
             },
             {
                 path: "test",
                 name: "Test",
                 component: () => import("../views/Test.vue"),
-                meta: { requiresAuth: true }
+                meta: { requiresAuth: true, transition: 'page-slide' }
             },
         ],
     },
@@ -90,7 +84,7 @@ const routes = [
 
 const router = createRouter({
     history: createWebHistory(),          // HTML5 History 模式（无 # 号）
-    routes: routes,
+    routes,
 });
 
 /**

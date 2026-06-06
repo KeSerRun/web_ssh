@@ -21,6 +21,7 @@ const userForm = reactive({
     password: null,
     name: '',
     mobile: '',
+    avatar: null,
     is_staff: false,
     is_active: false,
     is_superuser: false,
@@ -44,8 +45,8 @@ const detailsForm = reactive({
     category: 0,                // 分类 ID
     category_name: '',          // 分类名称（只读展示）
     username: 'root',           // 默认登录账户
-    ip_addr: '',
-    port: 0,
+    ip_addr: '127.0.0.1',       // 默认 IP 地址
+    port: 22,                   // 默认 SSH 端口
     connect_pwd: '',            // 初始连接密码（仅用于首次推送公钥）
     remark: '',
 });

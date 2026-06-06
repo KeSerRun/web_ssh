@@ -63,6 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
         min_length=6
     )
     # 主机 ID 列表 → 自动转为 Host ORM 实例
+    avatar = serializers.ImageField(required=False, allow_null=True)
     hosts = serializers.PrimaryKeyRelatedField(
         queryset=Host.objects.all(),
         many=True,
@@ -72,7 +73,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'mobile', 'name', 'sex',
+            'id', 'username', 'mobile', 'name', 'sex', 'avatar',
             'is_active', 'is_staff', 'is_superuser',
             'password', 'hosts',
         ]
@@ -89,7 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
         user = request.user
 
         # 规则1: 员工无权提升权限
-        if user and user.is_staff and not user.is_superuser:
+        if user.is_staff and not user.is_superuser:
             if attrs.get('is_staff') or attrs.get('is_superuser'):
                 raise serializers.ValidationError(
                     {'is_staff': '权限不足：员工无权修改 staff 或 superuser 身份，仅超级管理员可操作'}
@@ -112,10 +113,10 @@ class UserSerializer(serializers.ModelSerializer):
         与全局 validate 中规则 2 互为补充，此方法在部分更新时也会触发。
         """
         user = self.context['request'].user
-        # 只有普通用户才需要拦截
-        if user and not user.is_staff and not user.is_superuser:
-            # 只要列表里出现任何 name='root' 的主机就拒绝
-            if any(h.name == 'root' for h in hosts):
+        # 只有普通用户才需要拦截 root 主机
+        if not user.is_staff and not user.is_superuser:
+            # 检查 SSH 登录用户名是否为 root（而非主机显示名称）
+            if any(h.username == 'root' for h in hosts):
                 raise serializers.ValidationError(
                     '安全限制：普通用户不能关联 root 账户的主机，请选择非 root 账户的主机'
                 )

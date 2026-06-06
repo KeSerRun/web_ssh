@@ -3,7 +3,7 @@
   <div class="terminal-toolbar">
     <a-space :size="12">
       <!-- 主机选择下拉 -->
-      <a-dropdown :trigger="['click']" placement="bottomLeft">
+      <a-dropdown :trigger="['click']" placement="bottomLeft" @openChange="onDropdownOpen">
         <a-button class="host-select-btn">
           <CloudServerOutlined />
           <span class="host-select-label">{{ selectedHost }}</span>
@@ -17,10 +17,10 @@
               @click="onClickSelect(id)"
             >
               <a-tag
-                :color="getHostStatus(id) === 'online' ? 'green' : 'default'"
+                :color="getHostStatus(id) === 'online' ? 'green' : getHostStatus(id) === 'probing' ? 'processing' : 'default'"
                 class="host-status-tag"
               >
-                {{ getHostStatus(id) === 'online' ? '在线' : '离线' }}
+                {{ getHostStatus(id) === 'online' ? '在线' : getHostStatus(id) === 'probing' ? '检测中...' : '离线' }}
               </a-tag>
               {{ getHostName(id) }}
             </a-menu-item>
@@ -33,12 +33,22 @@
       </a-dropdown>
 
       <!-- 连接按钮 -->
-      <a-button @click="linkToHost" type="primary" class="connect-btn">
+      <a-button @click="linkToHost" type="primary" :disabled="!selectedHostId">
         <LinkOutlined /> 连接主机
       </a-button>
 
-      <!-- 文件管理器 -->
-      <FileManager :dev_id="selectedHostId" />
+      <!-- 断开按钮（仅连接后可见） -->
+      <a-button v-if="connected" @click="disconnectHost" danger>
+        <DisconnectOutlined /> 断开连接
+      </a-button>
+
+      <!-- 清屏按钮 -->
+      <a-button @click="clearTerminal">
+        <ClearOutlined /> 清屏
+      </a-button>
+
+      <!-- 文件管理器（仅连接后可用） -->
+      <FileManager v-if="connected" :dev_id="selectedHostId" />
     </a-space>
   </div>
 
@@ -61,45 +71,59 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, onActivated } from 'vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
 import settings from '@/settings'
 import { getUserInfo } from '@/utils/token'
-import { httpGET } from '@/http'
+import { httpGET, httpPOST } from '@/http'
 import { api } from '@/settings'
 import FileManager from '@/components/FileManager.vue'
 import { message } from 'ant-design-vue'
 import {
-  CloudServerOutlined, DownOutlined, LinkOutlined,
+  CloudServerOutlined, DownOutlined, LinkOutlined, DisconnectOutlined, ClearOutlined,
 } from '@ant-design/icons-vue'
+
+// keep-alive 需要组件名来识别缓存目标
+defineOptions({ name: 'Home' })
 
 let term
 let fitAddon
 let socket
+let resizeObserver
 
 const terminalEl = ref(null)
 const selectedHost = ref('请选择主机')
 const selectedHostId = ref()
 const host = ref()
 const host_ids = ref([])
+const connected = ref(false)
 
 const getHostName = (id) => {
-  return host.value?.filter(item => item.id === id)[0]?.name || ''
+  return host.value?.find(item => item.id === id)?.name || ''
 }
 
 const getHostStatus = (id) => {
-  const item = host.value?.filter(h => h.id === id)[0]
+  const item = host.value?.find(h => h.id === id)
+  if (item?._probing) return 'probing'
   return item?.status === 1 ? 'online' : 'offline'
 }
 
 const getDetails = () => {
-  httpGET(api.hosts).then(res => { host.value = res.data })
+  return httpGET(api.hosts).then(res => {
+    // 保留本地探测状态，只更新服务端数据
+    const oldMap = {}
+    host.value?.forEach(h => { oldMap[h.id] = h._probing })
+    host.value = (res.data || []).map(h => {
+      h._probing = oldMap[h.id] || false
+      return h
+    })
+  })
 }
 
 const getHostIds = () => {
-  getUserInfo().then(res => {
+  return getUserInfo().then(res => {
     host_ids.value = res.data.hosts
   })
 }
@@ -109,13 +133,57 @@ const onClickSelect = (key) => {
   selectedHost.value = getHostName(key)
 }
 
+// 是否正在批量探测中
+let probingAll = false
+
+// 下拉菜单展开时，批量探测所有主机在线状态
+const onDropdownOpen = async (open) => {
+  if (!open) return          // 关闭时忽略
+  if (probingAll) return     // 正在探测中，防重入
+  if (!host_ids.value.length) return
+
+  probingAll = true
+
+  // 标记所有主机为探测中
+  const targets = host_ids.value
+    .map(id => host.value?.find(h => h.id === id))
+    .filter(Boolean)
+
+  targets.forEach(h => { h._probing = true })
+
+  // 并行探测所有主机
+  const results = await Promise.allSettled(
+    targets.map(h =>
+      httpPOST(api.hostProbe(h.id), {}, false).then(res => {
+        h.status = res.data.data.status   // APIResponse 包裹格式: {code, message, data: {status, status_text}}
+      }).catch(() => {
+        h.status = 0
+      })
+    )
+  )
+
+  // 清除探测状态
+  targets.forEach(h => { h._probing = false })
+  probingAll = false
+}
+
 const linkToHost = () => {
-  if (selectedHostId.value) {
-    socket?.close()
-    initSocket(selectedHostId.value)
-  } else {
+  if (!selectedHostId.value) {
     message.warning('请先选择一台主机')
+    return
   }
+  socket?.close()
+  initSocket(selectedHostId.value)
+}
+
+const disconnectHost = () => {
+  socket?.close()
+  connected.value = false
+  term?.writeln('\r\n\x1b[33m[ 手动断开 ]\x1b[0m\r\n')
+}
+
+const clearTerminal = () => {
+  term?.clear()
 }
 
 /* ========== WebSocket 连接 ========== */
@@ -126,15 +194,18 @@ function initSocket(host_id) {
     ['jwt', token]
   )
   socket.onopen = () => {
+    connected.value = true
     term.writeln('\r\n\x1b[32m[ 已连接 ]\x1b[0m\r\n')
     getDetails()  // 连接成功后刷新主机列表，更新在线状态
   }
   socket.onmessage = ({ data }) => term.write(atob(data))
   socket.onclose = () => {
+    connected.value = false
     term.writeln('\r\n\x1b[31m[ 已断开 ]\x1b[0m\r\n')
     getDetails()
   }
   socket.onerror = () => {
+    connected.value = false
     term.writeln('\r\n\x1b[31m[ 连接错误 ]\x1b[0m\r\n')
     getDetails()
   }
@@ -193,11 +264,11 @@ function initTerm() {
     }
   })
 
-  // 监听窗口大小变化
-  const observer = new ResizeObserver(() => {
+  // 监听窗口大小变化，终端自适应
+  resizeObserver = new ResizeObserver(() => {
     fitAddon?.fit()
   })
-  observer.observe(terminalEl.value)
+  resizeObserver.observe(terminalEl.value)
 }
 
 onMounted(() => {
@@ -206,9 +277,27 @@ onMounted(() => {
   getDetails()
 })
 
+// keep-alive 缓存后切回时：刷新主机列表 + 清空选中 + 自适应终端
+onActivated(() => {
+  // 延迟确保后端数据已持久化
+  setTimeout(async () => {
+    // 断开当前连接
+    if (connected.value) disconnectHost()
+    // 清空选中
+    selectedHostId.value = null
+    selectedHost.value = '请选择主机'
+    // 刷新列表
+    await getHostIds()
+    await getDetails()
+  }, 200)
+  fitAddon?.fit()
+})
+
 onBeforeUnmount(() => {
   socket?.close()
   term?.dispose()
+  fitAddon?.dispose()
+  resizeObserver?.disconnect()
 })
 </script>
 
@@ -218,12 +307,23 @@ onBeforeUnmount(() => {
   margin-bottom: var(--space-md);
 }
 
+@media (max-width: 1000px) {
+  .terminal-toolbar :deep(.ant-space) {
+    flex-wrap: wrap;
+    gap: var(--space-sm) !important;
+  }
+  .terminal-body .terminal {
+    height: calc(60vh - 100px) !important;
+    min-height: 250px !important;
+  }
+}
+
 .host-select-btn {
   min-width: 160px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: var(--radius-md);
 }
 
 .host-select-label {
@@ -244,12 +344,9 @@ onBeforeUnmount(() => {
   margin-right: var(--space-sm);
   font-size: var(--font-size-sm);
   line-height: 18px;
+  transition: all var(--transition-base);
 }
 
-.connect-btn {
-  border-radius: var(--radius-md);
-  font-weight: 500;
-}
 
 /* ========== 终端窗口 ========== */
 .terminal-wrapper {
@@ -266,7 +363,7 @@ onBeforeUnmount(() => {
   align-items: center;
   height: 36px;
   padding: 0 var(--space-md);
-  background: #2a2e3a;
+  background: #1a1e2b;
   user-select: none;
 }
 

@@ -42,18 +42,17 @@ http.interceptors.response.use((response) => {
                         || error.config?.url?.includes('/user/register/');
     const isTokenVerify = error.config?.url?.includes('/token/verify/');
 
-    if (!isTokenVerify && hasToken) {
+    // 登录/注册页自行处理错误弹窗，拦截器不重复提示
+    if (!isTokenVerify && !isAuthEndpoint && hasToken) {
         switch (error.response?.status) {
             case 400:
                 message.error(error.response?.data?.message || '提交信息有误，请检查后重试');
                 break;
             case 401:
-                if (!isAuthEndpoint) {
-                    message.error('登录已过期，请重新登录');
-                }
+                message.error('登录已过期，请重新登录');
                 break;
             case 403:
-                message.error('没有权限执行此操作');
+                message.error(error.response?.data?.message || '没有权限执行此操作');
                 break;
             case 500:
                 message.error('服务器内部错误，请稍后重试');
@@ -84,122 +83,78 @@ const getErrorMessage = (error) => {
  * 优先从 sessionStorage 读取 token（会话级别），
  * 若无则从 localStorage 读取（持久化）。
  */
-const getConfg = () => {
-    let token = sessionStorage.token || localStorage.token;
-    return {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        }
-    };
-}
+const getConfig = () => {
+    const token = sessionStorage.token || localStorage.token;
+    return { headers: { Authorization: `Bearer ${token}` } };
+};
 
 // ==================== RESTful 请求方法 ====================
 
 /**
- * GET 请求 —— 获取数据
- * @param {string} url           - 请求地址
- * @param {boolean} show_massage - 是否显示成功/失败提示
+ * 通用请求包装 —— 自动注入 JWT 令牌、统一成功/错误提示。
+ *
+ * Axios 方法签名差异:
+ *   get / delete  → (url, config)        只有 2 个参数
+ *   post / put    → (url, data, config)   有 3 个参数
+ * 因此需要区分处理。
  */
-const httpGET = async (url, show_massage = false) => {
-    return http.get(url, getConfg()).then(response => {
-        if (show_massage) {
-            message.success('数据获取成功');
-        }
-        return response;
-    }).catch(error => {
-        console.log(getErrorMessage(error));
-        throw error;
-    });
+const _request = (method, url, data, showMsg, successText) => {
+    const config = { ...getConfig() };
+    const args = data !== undefined
+        ? [url, data, config]       // POST / PUT: 三个参数
+        : [url, config];            // GET / DELETE: 两个参数
+    return method(...args)
+        .then(res => {
+            if (showMsg) message.success(successText || '操作成功');
+            return res;
+        })
+        .catch(error => {
+            console.log(getErrorMessage(error));
+            throw error;
+        });
 };
 
-/**
- * POST 请求 —— 创建数据
- * @param {string} url           - 请求地址
- * @param {object} form          - 请求体数据
- * @param {boolean} show_massage - 是否显示成功/失败提示
- */
-const httpPOST = async (url, form, show_massage = true) => {
-    return http.post(url, form, getConfg()).then((response) => {
-        if (show_massage) {
-            message.success('数据上传成功');
-        }
-        return response;
-    }).catch(error => {
-        console.log(getErrorMessage(error));
-        throw error;
-    })
-}
+/** GET 请求 */
+const httpGET = (url, showMsg = false) =>
+    _request(http.get, url, undefined, showMsg, '数据获取成功');
 
-/**
- * PUT 请求 —— 更新数据（全量替换）
- * @param {string} url           - 请求地址（不含 ID）
- * @param {number} id            - 资源 ID，自动拼接到 URL 末尾
- * @param {object} form          - 请求体数据
- * @param {boolean} show_massage - 是否显示成功/失败提示
- */
-const httpPUT = async (url, id, form, show_massage = true) => {
-    return http.put(url + id + '/', form, getConfg()).then((response) => {
-        if (show_massage) {
-            message.success('数据更新成功');
-        }
-        return response;
-    }).catch(error => {
-        console.log(getErrorMessage(error));
-        throw error;
-    })
-}
+/** POST 请求 */
+const httpPOST = (url, form, showMsg = true) =>
+    _request(http.post, url, form, showMsg, '数据上传成功');
 
-/**
- * DELETE 请求 —— 删除数据
- * @param {string} url           - 请求地址（不含 ID）
- * @param {number} id            - 资源 ID，自动拼接到 URL 末尾
- * @param {boolean} show_massage - 是否显示成功/失败提示
- */
-const httpDELETE = async (url, id, show_massage = true) => {
-    return http.delete(url + id + '/', getConfg()).then((response) => {
-        if (show_massage) {
-            message.success('数据删除成功');
-        }
-        return response;
-    }).catch(error => {
-        console.log(getErrorMessage(error));
-        throw error;
-    })
-}
+/** PUT 请求（自动拼接 ID 到 URL 末尾） */
+const httpPUT = (url, id, form, showMsg = true) =>
+    _request(http.put, url + id + '/', form, showMsg, '数据更新成功');
+
+/** DELETE 请求（自动拼接 ID 到 URL 末尾） */
+const httpDELETE = (url, id, showMsg = true) =>
+    _request(http.delete, url + id + '/', undefined, showMsg, '数据删除成功');
 
 /**
  * 文件下载 —— POST 请求获取 blob，触发浏览器下载
  *
- * 实现原理:
- *   1. 以 blob 类型接收响应（二进制数据）
- *   2. 创建临时 <a> 标签
- *   3. 用 URL.createObjectURL 生成临时下载链接
- *   4. 触发点击 → 浏览器下载
- *   5. 清理临时元素和 URL
- *
- * @param {string} url           - 请求地址
- * @param {object} form          - 请求体（需包含 filename 字段）
- * @param {boolean} show_massage - 是否显示成功/失败提示
+ * @param {string}  url      - 请求地址
+ * @param {object}  [form]   - 请求体（需包含 filename 字段）
+ * @param {boolean} [showMsg] - 是否显示成功提示
  */
-const httpFileDownload = async (url, form = {}, show_massage = true) => {
+const httpFileDownload = async (url, form = {}, showMsg = true) => {
     return http
         .post(url, form, {
-            ...getConfg(),
-            responseType: 'blob',           // 关键：以二进制方式接收响应
+            ...getConfig(),
+            responseType: 'blob',
         })
         .then((response) => {
-            // 创建临时下载链接并触发点击
             const blob = new Blob([response.data])
             const link = document.createElement('a')
             link.href = URL.createObjectURL(blob)
-            link.download = form.filename    // 设置下载文件名
+            link.download = form.filename || 'download'
             link.style.display = 'none'
             document.body.appendChild(link)
-            link.click()                     // 触发下载
+            link.click()
             document.body.removeChild(link)
-            URL.revokeObjectURL(link.href)   // 释放内存
+            URL.revokeObjectURL(link.href)
 
-            if (show_massage) message.success('文件下载成功')
+            if (showMsg) message.success('文件下载成功')
             return response
         })
         .catch((error) => {

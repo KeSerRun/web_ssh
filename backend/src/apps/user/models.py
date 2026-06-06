@@ -69,6 +69,7 @@ class User(AbstractUser):
         error_messages={'unique': '该手机号已注册'}
     )
     name = models.CharField('真实姓名', max_length=20, blank=True)
+    avatar = models.ImageField('头像', upload_to='avatars/', blank=True, null=True)
     sex = models.IntegerField(
         '性别',
         choices=SexChoices.choices,

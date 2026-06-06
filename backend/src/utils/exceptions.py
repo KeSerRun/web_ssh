@@ -20,6 +20,15 @@
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 
+# 字段名 → 中文标签映射（用于错误提示）
+FIELD_LABELS = {
+    'ip_addr': 'IP地址', 'port': '端口', 'username': '用户名',
+    'connect_pwd': '连接密码', 'name': '主机名称', 'category': '分类',
+    'remark': '备注', 'password': '密码', 'mobile': '手机号',
+    'hosts': '关联主机', 'is_active': '激活状态', 'is_staff': '员工权限',
+    'is_superuser': '超级管理员', 'avatar': '头像', 'sex': '性别',
+}
+
 
 def APIResponse(data='__no_data__', message='ok', code=None, status=None):
     """
@@ -105,10 +114,11 @@ def custom_exception_handler(exc, context):
             # 例: {"password": ["密码长度不足"]}  → "password: 密码长度不足"
             messages = []
             for field, errors in detail.items():
+                label = FIELD_LABELS.get(field, field)
                 if isinstance(errors, list):
-                    messages.append(f"{field}: {'; '.join(str(e) for e in errors)}")
+                    messages.append(f"{label}: {'; '.join(str(e) for e in errors)}")
                 else:
-                    messages.append(f"{field}: {errors}")
+                    messages.append(f"{label}: {errors}")
             message = '; '.join(messages)
         elif isinstance(detail, list):
             message = '; '.join(str(d) for d in detail)

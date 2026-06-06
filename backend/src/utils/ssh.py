@@ -8,8 +8,21 @@ SSH 核心工具模块
     工具函数      — SSH 连接探测、远程命令执行、文件上传/下载、密钥对管理
 """
 
-import json, io, base64, queue, threading, paramiko, time, socket, logging
+# 标准库
+import io
+import json
+import base64
+import queue
+import threading
+import time
+import socket
+import logging
+
+# 第三方库
+import paramiko
 from channels.generic.websocket import WebsocketConsumer
+
+# 项目内部
 from apps.host.models import Host
 
 logger = logging.getLogger(__name__)
@@ -120,8 +133,8 @@ class SSHConsumer(WebsocketConsumer):
             self.chan = ssh.get_transport().open_session()
             self.chan.get_pty(term='xterm', width=80, height=48)  # 申请伪终端
             self.chan.invoke_shell()           # 启动 shell
-            self.chan.send('exec bash -l\n')   # 切换为 login shell（加载 .bashrc 等）
-            self.chan.send('stty -echo\n')     # 关闭 SSH 本地回显，避免双倍字符
+            # 关回显 + 切 login shell（仅回显一行）
+            self.chan.send('stty -echo; exec bash -l\n')
             logger.info("SSH初始化成功")
             return True, None
         except Exception as e:
@@ -310,7 +323,44 @@ def push_public_key(host_info):
             ssh.close()
 
 
-# ==================== SSH 连接与命令执行工具函数 ====================
+# ==================== SSH 连接公共工厂 ====================
+
+def _build_ssh_client(host_info, timeout=5):
+    """
+    根据 host_info 字典构建已连接的 paramiko SSHClient。
+
+    从 host_info 中提取私钥并构造 RSAKey，统一处理密钥加载和连接参数。
+    所有需要 SSH 连接的工具函数（exec_cmd / upload / download）共用此工厂，
+    避免密钥加载和连接逻辑重复。
+
+    Args:
+        host_info: dict，需包含 ip_addr, port, username, private_key
+        timeout:   SSH 连接超时秒数
+
+    Returns:
+        paramiko.SSHClient: 已认证的 SSH 客户端
+
+    Raises:
+        RuntimeError: 连接失败时抛出
+    """
+    key_raw = host_info.get('private_key')
+    pkey = None
+    if key_raw:
+        pkey = paramiko.RSAKey.from_private_key(io.StringIO(key_raw))
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        hostname=host_info.get('ip_addr'),
+        port=int(host_info.get('port')),
+        username=host_info.get('username'),
+        pkey=pkey,
+        timeout=timeout,
+    )
+    return ssh
+
+
+# ==================== SSH 连接探测 ====================
 
 def probe_ssh_connect(ip_addr, port, username, password=None, pkey_pem=None, timeout=5):
     """
@@ -345,9 +395,9 @@ def probe_ssh_connect(ip_addr, port, username, password=None, pkey_pem=None, tim
             pkey=key,
             timeout=timeout,
             allow_agent=False,     # 禁用 SSH agent 转发
-            look_for_keys=False    # 禁用本地密钥搜索
+            look_for_keys=False,   # 禁用本地密钥搜索
         )
-        print('远程服务器连接测试成功')
+        logger.info('远程服务器连接测试成功')
         return None
     except Exception as e:
         return str(e)
@@ -355,6 +405,8 @@ def probe_ssh_connect(ip_addr, port, username, password=None, pkey_pem=None, tim
         if ssh:
             ssh.close()
 
+
+# ==================== 远程命令执行 ====================
 
 def exec_cmd(host_info=None, cmd=None, timeout=5):
     """
@@ -374,34 +426,24 @@ def exec_cmd(host_info=None, cmd=None, timeout=5):
         RuntimeError: SSH 连接失败、命令执行超时或执行出错时抛出
 
     超时策略:
-        命令执行最多等待 1 秒（recv_exit_status），超过则抛 RuntimeError。
+        SSH 连接超时使用 timeout 参数（默认 5s）；
+        命令执行最多等待 10 秒（recv_exit_status），超过则抛 RuntimeError。
     """
     ssh = None
     try:
-        key_raw = host_info.get('private_key')
-        pkey = None
-        if key_raw:
-            pkey = paramiko.RSAKey.from_private_key(io.StringIO(key_raw))
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(
-            hostname=host_info.get('ip_addr'),
-            port=int(host_info.get('port')),
-            username=host_info.get('username'),
-            pkey=pkey,
-            timeout=timeout
-        )
+        ssh = _build_ssh_client(host_info, timeout)
         stdin, stdout, stderr = ssh.exec_command(cmd)
-        stdout.channel.settimeout(10)       # 最大等待 1 秒
+        stdout.channel.settimeout(10)           # 命令执行超时 10 秒
         try:
-            stdout.channel.recv_exit_status()  # 阻塞等待命令结束
+            stdout.channel.recv_exit_status()   # 阻塞等待命令结束
         except socket.timeout:
             raise RuntimeError('命令执行超时(>10s)')
 
-        # 检查 stderr 是否有错误输出
+        # stderr 内容作为警告日志记录，不视为错误
+        # （部分命令会在 stderr 输出警告但仍正常退出）
         err_output = stderr.read().decode()
         if err_output:
-            raise RuntimeError(f'命令执行出错: {err_output.strip()}')
+            logger.warning('命令 stderr 输出: %s', err_output.strip())
 
         return stdout.read().decode()
     except RuntimeError:
@@ -435,19 +477,7 @@ def upload_file(host_info=None, file_obj=None, remote_path=None, filename=None, 
     ssh = None
     sftp = None
     try:
-        key_raw = host_info.get('private_key')
-        pkey = None
-        if key_raw:
-            pkey = paramiko.RSAKey.from_private_key(io.StringIO(key_raw))
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(
-            hostname=host_info.get('ip_addr'),
-            port=int(host_info.get('port')),
-            username=host_info.get('username'),
-            pkey=pkey,
-            timeout=timeout
-        )
+        ssh = _build_ssh_client(host_info, timeout)
         sftp = ssh.open_sftp()
         # 分块写入，每次最多 64KB 在内存中
         with sftp.open(f'{remote_path}/{filename}', 'wb') as f:
@@ -482,19 +512,7 @@ def download_file(host_info=None, remote_path=None, filename=None, timeout=5):
     """
     ssh = None
     try:
-        key_raw = host_info.get('private_key')
-        pkey = None
-        if key_raw:
-            pkey = paramiko.RSAKey.from_private_key(io.StringIO(key_raw))
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(
-            hostname=host_info.get('ip_addr'),
-            port=int(host_info.get('port')),
-            username=host_info.get('username'),
-            pkey=pkey,
-            timeout=timeout
-        )
+        ssh = _build_ssh_client(host_info, timeout)
         with ssh.open_sftp() as sftp:
             with sftp.file(f'{remote_path}/{filename}', 'rb') as f:
                 file = io.BytesIO(f.read())  # 一次性读入内存

@@ -17,11 +17,37 @@ from .models import Host, HostCategory
 from .serializers import HostSerializer, HostCategorySerializer
 from django.http import FileResponse
 from rest_framework.views import APIView
-from utils.ssh import exec_cmd, upload_file, download_file, push_public_key, generate_key_pair
+from utils.ssh import exec_cmd, upload_file, download_file, push_public_key, generate_key_pair, probe_ssh_connect
 from utils.permissions import IsSuperUser, IsStaff, IsActie, IsActieReadOnly
 from utils.exceptions import APIResponse
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== 共享工具 ====================
+
+def _get_host_or_404(dev_id):
+    """
+    根据主机 ID 获取主机信息字典，不存在则返回 404 错误响应。
+
+    此函数消除了 HostFileAPIView / UploadFileAPIView / DownloadFileAPIView
+    中重复的主机查询模式。
+
+    Returns:
+        tuple: (host_info_dict, None)  成功
+        tuple: (None, APIResponse)     主机不存在
+    """
+    host_info = Host.objects.filter(pk=dev_id).values().first()
+    if not host_info:
+        return None, APIResponse(
+            message='主机不存在或已被删除',
+            code=status.HTTP_404_NOT_FOUND,
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return host_info, None
+
+
+# ==================== 视图集 ====================
 
 
 class HostViewSet(viewsets.ModelViewSet):
@@ -75,6 +101,46 @@ class HostViewSet(viewsets.ModelViewSet):
                 code=500, status=500,
             )
 
+    @action(detail=True, methods=['post'], permission_classes=[IsActie])
+    def probe(self, request, pk=None):
+        """
+        探测主机在线状态 — 通过真实 SSH 连接测试主机是否可达。
+
+        POST /host/hosts/{id}/probe/
+
+        使用存储的私钥尝试连接远程主机，连接成功则更新 status=1（在线），
+        失败则更新 status=0（离线）。返回探测结果和错误详情。
+        """
+        host = self.get_object()
+
+        # 优先使用私钥认证，私钥为空则传 None（paramiko 会跳过密钥认证）
+        error = probe_ssh_connect(
+            ip_addr=host.ip_addr,
+            port=host.port,
+            username=host.username,
+            pkey_pem=host.private_key or None,
+            timeout=5,
+        )
+
+        if error is None:
+            host.status = 1
+            host.save(update_fields=['status'])
+            logger.info("主机 %s 探测成功: 在线", host.name)
+            return APIResponse(
+                data={'status': 1, 'status_text': '在线'},
+                message=f'主机 [{host.name}] 连接正常',
+            )
+        else:
+            host.status = 0
+            host.save(update_fields=['status'])
+            logger.warning("主机 %s 探测失败: %s", host.name, error)
+            return APIResponse(
+                data={'status': 0, 'status_text': '离线', 'error': error},
+                message=f'主机 [{host.name}] 无法连接: {error}',
+                code=503,
+                status=503,
+            )
+
 
 class HostCategoryViewSet(viewsets.ModelViewSet):
     """
@@ -121,14 +187,11 @@ class HostFileAPIView(APIView):
         full_cmd = f'cd {base_path} && {cmd} ' + ' '.join(args)
 
         # 4. 通过 SSH 执行命令
+        host_info, err = _get_host_or_404(dev_id)
+        if err:
+            return err
+
         try:
-            host_info = Host.objects.filter(pk=dev_id).values().first()
-            if not host_info:
-                return APIResponse(
-                    message='主机不存在或已被删除',
-                    code=status.HTTP_404_NOT_FOUND,
-                    status=status.HTTP_404_NOT_FOUND,
-                )
             logger.debug('cmd: %s', full_cmd)
             out = exec_cmd(host_info=host_info, cmd=full_cmd)
             logger.debug('out: %s', out)
@@ -136,12 +199,6 @@ class HostFileAPIView(APIView):
         except RuntimeError as e:
             return APIResponse(
                 message=str(e),
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        except Exception as e:
-            return APIResponse(
-                message=f'命令执行失败: {e}',
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -153,21 +210,14 @@ class UploadFileAPIView(APIView):
 
     POST /host/<dev_id>/upload/?path=<remote_path>
     Body: multipart/form-data, 字段 filename + file
-
-    流程:
-        1. 从请求中读取目标路径、文件名和文件对象
-        2. 查询主机信息
-        3. 通过 SFTP 分块上传文件
     """
     permission_classes = [IsActie]
 
     def post(self, request, dev_id):
-        # 1. 获取查询参数中的远程目标路径
         base_path = request.query_params.get('path', '')
-
-        # 2. 获取请求中的文件名和文件对象
         file_name = request.data.get('filename', 'nonename')
         file_obj = request.FILES.get('file')
+
         if not file_obj:
             return APIResponse(
                 message='缺少上传文件，请在请求中附带 file 字段',
@@ -175,15 +225,11 @@ class UploadFileAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3. 建立 SSH 连接，通过 SFTP 上传文件
+        host_info, err = _get_host_or_404(dev_id)
+        if err:
+            return err
+
         try:
-            host_info = Host.objects.filter(pk=dev_id).values().first()
-            if not host_info:
-                return APIResponse(
-                    message='主机不存在或已被删除',
-                    code=status.HTTP_404_NOT_FOUND,
-                    status=status.HTTP_404_NOT_FOUND,
-                )
             upload_file(host_info, file_obj, base_path, file_name)
             return APIResponse(
                 data={'path': base_path, 'name': file_name},
@@ -192,12 +238,6 @@ class UploadFileAPIView(APIView):
         except RuntimeError as e:
             return APIResponse(
                 message=f'文件上传失败: {e}',
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        except Exception as e:
-            return APIResponse(
-                message=f'文件上传异常: {e}',
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -215,26 +255,17 @@ class DownloadFileAPIView(APIView):
     permission_classes = [IsActie]
 
     def post(self, request, dev_id):
-        # 1. 获取查询参数中的远程路径
         base_path = request.query_params.get('path', '')
-
-        # 2. 获取要下载的文件名
         file_name = request.data.get('filename', 'nonename')
 
-        # 3. 通过 SFTP 下载文件并返回 FileResponse
+        host_info, err = _get_host_or_404(dev_id)
+        if err:
+            return err
+
         try:
-            host_info = Host.objects.filter(pk=dev_id).values().first()
-            if not host_info:
-                return APIResponse(
-                    message='主机不存在或已被删除',
-                    code=status.HTTP_404_NOT_FOUND,
-                    status=status.HTTP_404_NOT_FOUND,
-                )
             file, file_size = download_file(host_info, base_path, file_name)
             response = FileResponse(
-                file,
-                as_attachment=True,
-                filename=str(file_name)
+                file, as_attachment=True, filename=str(file_name),
             )
             response['Content-Length'] = file_size
             return response
@@ -247,12 +278,6 @@ class DownloadFileAPIView(APIView):
         except RuntimeError as e:
             return APIResponse(
                 message=str(e),
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        except Exception as e:
-            return APIResponse(
-                message=f'文件下载异常: {e}',
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

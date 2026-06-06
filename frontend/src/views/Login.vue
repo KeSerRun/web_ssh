@@ -8,7 +8,7 @@
       <!-- 标题区 -->
       <div class="login-header">
         <div class="login-logo">
-          <CloudServerOutlined />
+          <img src="@/static/images/logo.svg" alt="Web SSH" class="login-logo-img" />
         </div>
         <h1 class="login-title">Web SSH</h1>
         <p class="login-subtitle">远程终端管理系统</p>
@@ -29,6 +29,7 @@
             placeholder="用户名 / 手机号"
             size="large"
             class="login-input"
+            :disabled="loading"
           >
             <template #prefix>
               <UserOutlined class="input-icon" />
@@ -42,6 +43,7 @@
             placeholder="请输入密码"
             size="large"
             class="login-input"
+            :disabled="loading"
           >
             <template #prefix>
               <LockOutlined class="input-icon" />
@@ -86,9 +88,9 @@
 
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { Modal } from 'ant-design-vue'
-import { UserOutlined, LockOutlined, CloudServerOutlined } from '@ant-design/icons-vue'
+import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { loginForm } from '@/utils/form'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
@@ -102,25 +104,37 @@ if (localStorage.getItem('username')) {
   loginForm.username = localStorage.getItem('username')
 }
 
-const onFinish = () => {
+const onFinish = async () => {
   loading.value = true
-  authStore.login({
-    username: loginForm.username,
-    password: loginForm.password,
-    remember: loginForm.remember,
-  }).then(() => {
-    router.push('/base/home')
-    console.log('登录成功')
-  }).catch(errorInfo => {
-    Modal.error({
-      title: '登录失败',
-      content: '用户名或密码错误，请检查后重试',
-      okText: '知道了',
+  try {
+    await authStore.login({
+      username: loginForm.username,
+      password: loginForm.password,
+      remember: loginForm.remember,
     })
-    console.log('登录失败:', errorInfo)
-  }).finally(() => {
+    await nextTick()
+    await router.replace({ name: 'Home' })
+  } catch (err) {
+    const resp = err?.response
+    let title = '登录失败'
+    let content = '请稍后重试'
+
+    if (!resp) {
+      content = '无法连接到服务器，请检查网络或确认后端服务已启动'
+    } else if (resp.status === 401) {
+      content = '用户名或密码错误，请检查后重试'
+    } else if (resp.status === 400) {
+      content = resp.data?.message || '提交信息有误，请检查后重试'
+    } else if (resp.status >= 500) {
+      content = '服务器内部错误，请稍后重试'
+    } else {
+      content = resp.data?.message || '登录失败，请稍后重试'
+    }
+
+    Modal.error({ title, content, okText: '知道了' })
+  } finally {
     loading.value = false
-  })
+  }
 }
 
 // ---------- 表单校验 ----------
@@ -157,9 +171,7 @@ const rules = {
 .login-bg {
   position: fixed;
   inset: 0;
-  background:
-    linear-gradient(135deg, rgba(22, 119, 255, 0.15) 0%, rgba(22, 119, 255, 0.02) 50%, rgba(0, 0, 0, 0.03) 100%),
-    url('../static/images/login.png') center / cover no-repeat;
+  background: url('../static/images/login-bg.svg') center / cover no-repeat;
   z-index: 0;
 }
 
@@ -167,8 +179,8 @@ const rules = {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(2px);
+  background: rgba(10, 22, 40, 0.50);
+  backdrop-filter: blur(5px);
 }
 
 /* ========== 登录卡片 ========== */
@@ -197,14 +209,13 @@ const rules = {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: var(--space-md);
+}
+
+.login-logo-img {
   width: 64px;
   height: 64px;
-  font-size: 32px;
-  color: #fff;
-  background: linear-gradient(135deg, #1677ff, #4096ff);
-  border-radius: 50%;
-  margin-bottom: var(--space-md);
-  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.3);
+  filter: drop-shadow(0 4px 12px rgba(22, 119, 255, 0.3));
 }
 
 .login-title {
@@ -266,7 +277,7 @@ const rules = {
 .login-register-link {
   text-align: center;
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: var(--space-xs);
 }
 
@@ -282,7 +293,7 @@ const rules = {
   bottom: var(--space-lg);
   z-index: 1;
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: rgba(255, 255, 255, 0.50);
   letter-spacing: 1px;
 }
 </style>

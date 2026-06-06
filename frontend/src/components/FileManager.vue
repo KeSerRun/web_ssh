@@ -30,9 +30,14 @@
 
     <!-- 路径栏 -->
     <div class="fm-pathbar">
-      <span class="fm-path">
-        <HomeOutlined /> {{ path }}
-      </span>
+      <a-breadcrumb class="fm-breadcrumb">
+        <a-breadcrumb-item>
+          <a @click="dir('/')"><HomeOutlined /></a>
+        </a-breadcrumb-item>
+        <a-breadcrumb-item v-for="(seg, i) in pathSegments" :key="i">
+          <a @click="dir(seg.path)">{{ seg.name }}</a>
+        </a-breadcrumb-item>
+      </a-breadcrumb>
       <span class="fm-toggle">
         <a-tooltip title="显示/隐藏隐藏文件">
           <a-switch v-model:checked="hide" size="small" @change="dir(path)" />
@@ -110,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { httpPOST, httpFileDownload } from '@/http'
 import { parseLs, decodePerm } from '@/utils/list'
 import { dictColumns } from '@/utils/table'
@@ -166,6 +171,19 @@ const iconMap = {
 
 const path = ref('./')
 const hide = ref(true)
+
+// 将当前路径拆分为可点击的面包屑分段
+const pathSegments = computed(() => {
+  const parts = path.value.replace(/\/+$/, '').split('/').filter(Boolean)
+  const segments = []
+  parts.forEach((part, i) => {
+    segments.push({
+      name: part,
+      path: '/' + parts.slice(0, i + 1).join('/'),
+    })
+  })
+  return segments
+})
 const dict = ref([])
 const loading = ref(false)
 
@@ -353,11 +371,11 @@ watch(menuVisible, (val) => {
 }
 
 .fm-table :deep(.ant-table-row:hover) td {
-  background-color: #fff1b8 !important;
+  background-color: var(--color-row-hover) !important;
 }
 
 .fm-table :deep(tr.row-selected) td {
-  background-color: #ffd591 !important;
+  background-color: var(--color-row-selected) !important;
 }
 
 /* 文件类型图标 */
@@ -365,6 +383,9 @@ watch(menuVisible, (val) => {
   font-size: 16px;
   color: var(--color-primary);
 }
+.fm-icon--folder { color: #faad14; }
+.fm-icon--file   { color: var(--color-text-tertiary); }
+.fm-icon--link   { color: var(--color-primary); }
 
 /* 右键菜单触发器（隐藏，仅用于定位） */
 .fm-context-trigger {
@@ -376,10 +397,10 @@ watch(menuVisible, (val) => {
 
 /* 右键菜单项 hover */
 :deep(.fm-context-menu .ant-menu-item:hover) {
-  background-color: #fff1b8;
+  background-color: var(--color-primary-bg);
 }
 
 :deep(.fm-context-menu .ant-menu-item-danger:hover) {
-  background-color: #fff2f0;
+  background-color: var(--color-row-new);
 }
 </style>

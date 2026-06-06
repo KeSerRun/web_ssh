@@ -8,7 +8,7 @@
       <!-- 标题区 -->
       <div class="register-header">
         <div class="register-logo">
-          <UserAddOutlined />
+          <img src="@/static/images/logo.svg" alt="Web SSH" class="register-logo-img" />
         </div>
         <h1 class="register-title">创建账号</h1>
         <p class="register-subtitle">注册后即可使用终端管理系统</p>
@@ -29,6 +29,7 @@
             placeholder="请输入用户名"
             size="large"
             class="register-input"
+            :disabled="loading"
           >
             <template #prefix>
               <UserOutlined class="input-icon" />
@@ -42,6 +43,7 @@
             placeholder="请输入手机号"
             size="large"
             class="register-input"
+            :disabled="loading"
           >
             <template #prefix>
               <PhoneOutlined class="input-icon" />
@@ -55,6 +57,7 @@
             placeholder="请设置密码（至少6位）"
             size="large"
             class="register-input"
+            :disabled="loading"
           >
             <template #prefix>
               <LockOutlined class="input-icon" />
@@ -89,7 +92,7 @@
 import { ref, reactive } from 'vue'
 import { message } from 'ant-design-vue'
 import {
-  UserOutlined, LockOutlined, PhoneOutlined, UserAddOutlined,
+  UserOutlined, LockOutlined, PhoneOutlined,
 } from '@ant-design/icons-vue'
 import { httpPOST } from '@/http'
 import { api } from '@/settings'
@@ -113,16 +116,26 @@ const onFinish = () => {
     message.success('注册成功，请登录')
     router.push('/login')
   }).catch(err => {
-    const data = err?.response?.data
-    if (data) {
-      // 提取后端返回的具体错误信息
-      const msgs = []
-      for (const [key, val] of Object.entries(data)) {
-        msgs.push(Array.isArray(val) ? val.join('；') : val)
+    const resp = err?.response
+
+    if (!resp) {
+      message.error('无法连接到服务器，请检查网络后重试')
+    } else if (resp.status === 400) {
+      // 后端字段级验证错误，提取具体信息
+      const data = resp.data
+      if (data && typeof data === 'object') {
+        const msgs = []
+        for (const [key, val] of Object.entries(data)) {
+          msgs.push(Array.isArray(val) ? val.join('；') : val)
+        }
+        message.error(msgs.join('；') || '提交信息有误，请检查后重试')
+      } else {
+        message.error(resp.data?.message || '提交信息有误，请检查后重试')
       }
-      message.error(msgs.join('；') || '注册失败，请稍后重试')
+    } else if (resp.status >= 500) {
+      message.error('服务器内部错误，请稍后重试')
     } else {
-      message.error('注册失败，请检查网络连接')
+      message.error(resp.data?.message || '注册失败，请稍后重试')
     }
   }).finally(() => {
     loading.value = false
@@ -163,9 +176,7 @@ const rules = {
 .register-bg {
   position: fixed;
   inset: 0;
-  background:
-    linear-gradient(135deg, rgba(22, 119, 255, 0.12) 0%, rgba(22, 119, 255, 0.02) 50%, rgba(0, 0, 0, 0.03) 100%),
-    url('../static/images/login.png') center / cover no-repeat;
+  background: url('../static/images/login-bg.svg') center / cover no-repeat;
   z-index: 0;
 }
 
@@ -173,15 +184,15 @@ const rules = {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(2px);
+  background: rgba(10, 22, 40, 0.50);
+  backdrop-filter: blur(5px);
 }
 
 /* ========== 注册卡片 ========== */
 .register-card {
   position: relative;
   z-index: 1;
-  width: 420px;
+  width: 400px;
   padding: var(--space-2xl) var(--space-xl) var(--space-xl);
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(20px);
@@ -203,14 +214,13 @@ const rules = {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: var(--space-md);
+}
+
+.register-logo-img {
   width: 64px;
   height: 64px;
-  font-size: 32px;
-  color: #fff;
-  background: linear-gradient(135deg, #52c41a, #73d13d);
-  border-radius: 50%;
-  margin-bottom: var(--space-md);
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
+  filter: drop-shadow(0 4px 12px rgba(22, 119, 255, 0.3));
 }
 
 .register-title {
@@ -267,7 +277,7 @@ const rules = {
 .register-footer {
   text-align: center;
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: var(--space-sm);
 }
 

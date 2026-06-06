@@ -73,9 +73,9 @@ const getUserId = () => {
  * @returns {Promise} - 用户详情响应或错误
  */
 const getUserInfo = async () => {
-    return httpGET(`${api.users}${getUserId()}`).then(response => {
-        return response;
-    }).catch(error => { return error });
+    const uid = getUserId()
+    if (!uid) throw new Error('无法获取用户 ID，请重新登录')
+    return httpGET(`${api.users}${uid}`)
 }
 
 export { base64urlDecode, getUserId, getUserInfo, refreshToken };

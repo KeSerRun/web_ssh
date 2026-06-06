@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- 背景圆角矩形 -->
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="#1677ff" />
+
+  <!-- SSH 终端窗口 -->
+  <rect x="8" y="12" width="32" height="26" rx="4" fill="#0d1f3c" />
+
+  <!-- 终端标题栏圆点 -->
+  <circle cx="14" cy="18" r="2.5" fill="#ff5f57"/>
+  <circle cx="21" cy="18" r="2.5" fill="#febc2e"/>
+  <circle cx="28" cy="18" r="2.5" fill="#28c840"/>
+
+  <!-- >_ 终端提示符 -->
+  <text x="14" y="30" font-family="'Cascadia Code', 'Fira Code', Consolas, monospace" font-size="12" font-weight="700" fill="#4096ff">></text>
+  <text x="22" y="30" font-family="'Cascadia Code', 'Fira Code', Consolas, monospace" font-size="12" font-weight="400" fill="#52c41a">_</text>
+
+  <!-- 光标闪烁条 -->
+  <rect x="28" y="23" width="8" height="2.5" rx="1" fill="#e0e0e0" opacity="0.6"/>
+</svg>

@@ -60,6 +60,7 @@ const removeFile = (uid) => {
 
 .upload-dragger:hover {
   border-color: var(--color-primary) !important;
+  background: var(--color-primary-bg) !important;
 }
 
 .upload-icon {
@@ -82,6 +83,9 @@ const removeFile = (uid) => {
 /* 已选文件列表 */
 .upload-file-list {
   margin-top: var(--space-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .upload-file-item {

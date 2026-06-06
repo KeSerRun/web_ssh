@@ -16,21 +16,21 @@ INSTALLED_APPS = [
 # 异步
 ASGI_APPLICATION = 'apps.asgi.application'
 
-# 通道层：Redis 作为消息队列承载 WebSocket 长连接通信
+# 通道层：Redis 消息队列
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [{
                 "address": "redis://127.0.0.1:6379/0",
-                "socket_connect_timeout": 5,     # 连接超时 5 秒
-                "socket_timeout": 10,             # 读写超时 10 秒
-                "socket_keepalive": True,         # TCP keepalive 防止空闲断开
-                "retry_on_timeout": True,         # 超时自动重试
-                "health_check_interval": 30,      # 每 30 秒心跳检测
+                "socket_connect_timeout": 5,
+                "socket_timeout": 10,
+                "socket_keepalive": True,
+                "retry_on_timeout": True,
+                "health_check_interval": 30,
             }],
             "capacity": 1500,
-            "expiry": 60,                         # 消息过期 60 秒
+            "expiry": 60,
         },
     }
 }
@@ -125,8 +125,6 @@ SIMPLE_JWT = {
     # 严格声明校验（生产推荐）
     'REQUIRED_CLAIMS': ['exp', 'iat', 'jti', 'user_id'],
 
-    'UPDATE_LAST_LOGIN': True,          # 自动更新最后登录时间
-
     # 滑动窗口续期（可选）
     # 'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     # 'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
@@ -134,30 +132,24 @@ SIMPLE_JWT = {
 }
 
 # 数据库
+# 数据库：MySQL
 DATABASES = {
     'default': {
-        # 1. 驱动
         'ENGINE': 'django.db.backends.mysql',
-
-        # 2. 基本连接
-        'NAME': os.getenv('DB_NAME', 'web_ssh'),          # 提前 CREATE DATABASE
+        'NAME': os.getenv('DB_NAME', 'web_ssh'),
         'USER': os.getenv('DB_USER', 'root'),
         'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '3306'),
-
-        # 3. 连接池（Django 3.2+ 支持 CONN_MAX_AGE）
-        'CONN_MAX_AGE': 600,                      # 秒：复用连接 10 min
-        'CONN_HEALTH_CHECKS': True,               # Django 5.0+ 心跳检测
-
-        # 4. 客户端选项
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
         'OPTIONS': {
             'charset': 'utf8mb4',
             'use_unicode': True,
             'init_command': "SET "
                             "sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', "
-                            "time_zone='+00:00'",   # UTC 时区，与 Django USE_TZ 一致
-            'isolation_level': 'read committed',   # 避免脏读
+                            "time_zone='+00:00'",
+            'isolation_level': 'read committed',
         },
     }
 }
@@ -174,7 +166,7 @@ LOGGING = {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs' / 'http.log',
             'maxBytes': 1024 * 1024 * 10,  # 10 MB
-            'backupCount': 5,        # 保留 30 份
+            'backupCount': 5,        # 保留 5 份
             'formatter': 'access',
         },
         # 错误日志（ERROR 级，最大10MB）
@@ -304,5 +296,5 @@ CORS_ALLOW_HEADERS = [
     'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with',
 ]
 
-# 开发偷懒模式（全部放行）
+# 开发环境：全部放行跨域请求（覆盖上方 CORS_ALLOWED_ORIGINS 白名单）
 CORS_ALLOW_ALL_ORIGINS = True
