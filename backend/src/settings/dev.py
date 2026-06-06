@@ -35,6 +35,27 @@ CHANNEL_LAYERS = {
     }
 }
 
+# 数据库：MySQL
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME', 'web_ssh'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+            'init_command': "SET "
+                            "sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', "
+                            "time_zone='+00:00'",
+            'isolation_level': 'read committed',
+        },
+    }
+}
 
 # 中间件
 MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware'] + MIDDLEWARE + ["utils.middleware.AccessLogMiddleware"]
@@ -131,28 +152,6 @@ SIMPLE_JWT = {
     # 'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# 数据库
-# 数据库：MySQL
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'web_ssh'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'CONN_MAX_AGE': 600,
-        'CONN_HEALTH_CHECKS': True,
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'init_command': "SET "
-                            "sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', "
-                            "time_zone='+00:00'",
-            'isolation_level': 'read committed',
-        },
-    }
-}
 
 # 日志
 LOGGING = {

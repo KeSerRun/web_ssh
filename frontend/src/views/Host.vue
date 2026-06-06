@@ -206,20 +206,24 @@ const onClickSelect = (key, index) => {
   }
 }
 
-const updateItem = (index) => {
+const updateItem = (index, showMsg = true) => {
   index = getindex(index)
   let payload = assignSame(listData.value[index], detailsForm)
   delete payload['update_status']
   delete payload['id']
 
-  // 校验必填字段
-  if (!payload.ip_addr) return message.warning('IP 地址不能为空')
-  if (!payload.connect_pwd) return message.warning('连接密码不能为空')
-  if (!payload.category || payload.category === 0) return message.warning('请选择主机分类')
-
-  const fieldLabels = {
-    ip_addr: 'IP地址', port: '端口', username: '用户名', connect_pwd: '连接验证',
-    name: '主机名称', category: '分类', remark: '备注',
+  // 校验必填字段（批量同步时不弹单项警告）
+  if (!payload.ip_addr) {
+    if (showMsg) message.warning('IP 地址不能为空')
+    return
+  }
+  if (!payload.connect_pwd) {
+    if (showMsg) message.warning('连接密码不能为空')
+    return
+  }
+  if (!payload.category || payload.category === 0) {
+    if (showMsg) message.warning('请选择主机分类')
+    return
   }
 
   const onErr = (err) => {
@@ -230,16 +234,36 @@ const updateItem = (index) => {
   }
 
   if (listData.value[index].update_status == 2) {
-    httpPOST(api.hosts, payload, false).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
+    return httpPOST(api.hosts, payload, showMsg).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
   } else if (listData.value[index].update_status == 3) {
-    httpPUT(api.hosts, listData.value[index].id, payload, false).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
+    return httpPUT(api.hosts, listData.value[index].id, payload, showMsg).then(() => { listData.value[index].update_status = 1 }).catch(onErr)
   }
 }
 
 const updateAll = () => {
+  const promises = []
   for (let index = 0; index < listData.value.length; index++) {
-    updateItem(index)
+    const item = listData.value[index]
+    // 只同步新增或修改的记录
+    if (item.update_status !== 2 && item.update_status !== 3) continue
+    const p = updateItem(index, false)
+    if (p) promises.push(p)
   }
+
+  if (promises.length === 0) {
+    message.info('没有需要同步的更改')
+    return
+  }
+
+  Promise.allSettled(promises).then((results) => {
+    const successCount = results.filter(r => r.status === 'fulfilled').length
+    const failCount = results.filter(r => r.status === 'rejected').length
+    if (failCount === 0) {
+      message.success(`批量同步完成，共处理 ${successCount} 条记录`)
+    } else {
+      message.warning(`批量同步完成：${successCount} 条成功，${failCount} 条失败`)
+    }
+  })
 }
 
 // 批量修复连接：重新推送公钥（容器重建后 authorized_keys 丢失时使用）

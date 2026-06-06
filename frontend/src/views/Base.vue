@@ -109,10 +109,10 @@
         <div class="content-breadcrumb">
           <a-breadcrumb>
             <a-breadcrumb-item>
-              <a @click="selectedKeys = [1]"><HomeOutlined /></a>
+              <a @click="goHome"><HomeOutlined /></a>
             </a-breadcrumb-item>
             <a-breadcrumb-item>
-              <a @click="selectedKeys = [1]">{{ logoText }}</a>
+              <a @click="goHome">{{ logoText }}</a>
             </a-breadcrumb-item>
             <a-breadcrumb-item v-if="selectedKeys.length">
               {{ base_list.find(i => i.key === selectedKeys[0])?.name }}
@@ -288,6 +288,12 @@ if (sessionStorage.getItem('selectedKeys')) {
 watch(selectedKeys, (val) => {
   sessionStorage.setItem('selectedKeys', String(val[0]))
 })
+
+// 面包屑点击返回主页
+const goHome = () => {
+  selectedKeys.value = [1]
+  router.push({ name: 'Home' })
+}
 
 // 退出登录
 const logout = () => {

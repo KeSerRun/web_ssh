@@ -13,17 +13,21 @@
   >
     <!-- 工具栏 -->
     <div class="fm-toolbar">
-      <a-space :size="8" wrap>
-        <a-button @click="go_back" size="small">
+      <div class="fm-toolbar-left">
+        <a-button @click="go_back" size="small" class="fm-btn-back">
           <ArrowLeftOutlined /> 上级目录
         </a-button>
-        <a-button @click="new_folder" size="small">
-          <FolderAddOutlined /> 新建文件夹
-        </a-button>
-        <a-button @click="upload_file" size="small">
-          <UploadOutlined /> 上传文件
-        </a-button>
-      </a-space>
+      </div>
+      <div class="fm-toolbar-right">
+        <a-space :size="8" wrap>
+          <a-button @click="new_folder" size="small" type="dashed" class="fm-btn-newfolder">
+            <FolderAddOutlined /> 新建文件夹
+          </a-button>
+          <a-button @click="upload_file" size="small" type="primary" class="fm-btn-upload">
+            <UploadOutlined /> 上传文件
+          </a-button>
+        </a-space>
+      </div>
     </div>
 
     <a-divider style="margin: 12px 0;" />
@@ -40,7 +44,7 @@
       </a-breadcrumb>
       <span class="fm-toggle">
         <a-tooltip title="显示/隐藏隐藏文件">
-          <a-switch v-model:checked="hide" size="small" @change="dir(path)" />
+          <a-switch v-model:checked="showHidden" size="small" @change="dir(path)" />
         </a-tooltip>
       </span>
     </div>
@@ -170,7 +174,7 @@ const iconMap = {
 }
 
 const path = ref('./')
-const hide = ref(true)
+const showHidden = ref(false)
 
 // 将当前路径拆分为可点击的面包屑分段
 const pathSegments = computed(() => {
@@ -219,7 +223,7 @@ const pwd = async (current_path) => {
 
 const dir = async (current_path) => {
   loading.value = true
-  let formData = { cmd: 'ls', args: hide.value ? ['-l'] : ['-la'] }
+  let formData = { cmd: 'ls', args: showHidden.value ? ['-la'] : ['-l'] }
   return httpPOST(`/host/${props.dev_id}/file/?path=${current_path}`, formData, false).then(response => {
     if (response.data.code === 200) {
       let raw = response.data.data.output
@@ -348,7 +352,81 @@ watch(menuVisible, (val) => {
 <style scoped>
 /* 工具栏 */
 .fm-toolbar {
-  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  background: var(--color-bg-page);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+}
+
+.fm-toolbar-left,
+.fm-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* 上级目录按钮 */
+.fm-btn-back {
+  border: 1px solid var(--color-border-base);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+
+.fm-btn-back:hover {
+  color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary-bg);
+}
+
+.fm-btn-back :deep(.anticon) {
+  transition: transform var(--transition-fast);
+}
+
+.fm-btn-back:hover :deep(.anticon) {
+  transform: translateX(-2px);
+}
+
+/* 新建文件夹按钮 */
+.fm-btn-newfolder {
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+
+.fm-btn-newfolder:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* 上传文件按钮 */
+.fm-btn-upload {
+  border-radius: 6px;
+  font-weight: 500;
+  background: #52c41a;
+  border-color: #52c41a;
+  box-shadow: 0 2px 4px rgba(82, 196, 26, 0.25);
+  transition: all var(--transition-fast);
+}
+
+.fm-btn-upload:hover {
+  background: #73d13d !important;
+  border-color: #73d13d !important;
+  box-shadow: 0 4px 10px rgba(82, 196, 26, 0.35);
+  transform: translateY(-1px);
+}
+
+.fm-btn-upload:active {
+  background: #389e0d !important;
+  border-color: #389e0d !important;
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(82, 196, 26, 0.15);
 }
 
 /* 路径栏 */
@@ -357,11 +435,43 @@ watch(menuVisible, (val) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-page);
+  border-radius: var(--radius-sm);
 }
 
 .fm-path {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+
+/* 面包屑 */
+.fm-breadcrumb :deep(.ant-breadcrumb-link) {
+  font-size: var(--font-size-sm);
+}
+
+.fm-breadcrumb :deep(.ant-breadcrumb-link a) {
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.fm-breadcrumb :deep(.ant-breadcrumb-link a:hover) {
+  color: var(--color-primary);
+}
+
+.fm-breadcrumb :deep(.ant-breadcrumb-item:last-child .ant-breadcrumb-link) {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* 隐藏文件开关 */
+.fm-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
 }
 
 /* 文件表格 */

@@ -277,19 +277,10 @@ onMounted(() => {
   getDetails()
 })
 
-// keep-alive 缓存后切回时：刷新主机列表 + 清空选中 + 自适应终端
+// keep-alive 缓存后切回时：刷新主机列表 + 自适应终端（保持连接状态）
 onActivated(() => {
-  // 延迟确保后端数据已持久化
-  setTimeout(async () => {
-    // 断开当前连接
-    if (connected.value) disconnectHost()
-    // 清空选中
-    selectedHostId.value = null
-    selectedHost.value = '请选择主机'
-    // 刷新列表
-    await getHostIds()
-    await getDetails()
-  }, 200)
+  getHostIds()
+  getDetails()
   fitAddon?.fit()
 })
 
