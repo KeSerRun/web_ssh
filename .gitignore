@@ -32,3 +32,4 @@ media/
 # docker
 docker/mysql/
 docker/redis/
+docker/ssh/

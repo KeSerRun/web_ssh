@@ -20,9 +20,9 @@ services:
     ports:
       - "3306:3306"  # 端口映射：宿主机:容器
     volumes:
-      - ./mysql/data:/var/lib/mysql  # 数据持久化目录
-      - ./mysql/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro  # 配置文件挂载（只读）
-      - ./mysql/log:/var/log/mysql  # 日志目录挂载
+      - ../mysql/data:/var/lib/mysql  # 数据持久化目录
+      - ../mysql/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro  # 配置文件挂载（只读）
+      - ../mysql/log:/var/log/mysql  # 日志目录挂载
 
   # Redis 缓存服务
   redis:
@@ -35,9 +35,9 @@ services:
     ports:
       - "127.0.0.1:6379:6379"  # 仅绑定本地回环地址，限制外部访问
     volumes:
-      - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf:ro  # Redis 配置文件（只读）
-      - ./redis/data:/data  # Redis 数据持久化目录
-      - ./redis/logs:/logs  # Redis 日志目录
+      - ../redis/conf/redis.conf:/usr/local/etc/redis/redis.conf:ro  # Redis 配置文件（只读）
+      - ../redis/data:/data  # Redis 数据持久化目录
+      - ../redis/logs:/logs  # Redis 日志目录
 
   # SSH 实例 1（端口 10021）
   ubuntu-21:
@@ -49,7 +49,7 @@ services:
     ports:
       - "10021:22"  # 映射宿主机 10021 端口到容器 22 端口
     volumes:
-      - ./ssh-data/21/ssh:/root/.ssh  # 仅持久化 authorized_keys，不影响其他系统文件
+      - ../ssh/21/ssh:/root/.ssh  # 仅持久化 authorized_keys，不影响其他系统文件
 
   # SSH 实例 2（端口 10022）
   ubuntu-22:
@@ -61,7 +61,7 @@ services:
     ports:
       - "10022:22"  # 映射宿主机 10022 端口到容器 22 端口
     volumes:
-      - ./ssh-data/22/ssh:/root/.ssh
+      - ../ssh/22/ssh:/root/.ssh
 
   # SSH 实例 3（端口 10023）
   ubuntu-23:
@@ -73,7 +73,7 @@ services:
     ports:
       - "10023:22"  # 映射宿主机 10023 端口到容器 22 端口
     volumes:
-      - ./ssh-data/23/ssh:/root/.ssh
+      - ../ssh/23/ssh:/root/.ssh
 
   # SSH 实例 4（端口 10024）
   ubuntu-24:
@@ -85,4 +85,4 @@ services:
     ports:
       - "10024:22"  # 映射宿主机 10024 端口到容器 22 端口
     volumes:
-      - ./ssh-data/24/ssh:/root/.ssh
+      - ../ssh/24/ssh:/root/.ssh
