@@ -12,6 +12,10 @@ __pycache__/
 *.pyo
 *.pyd
 
+# 虚拟环境
+.venv/
+uv.lock
+
 # IDE
 .vscode/
 !.vscode/settings.json

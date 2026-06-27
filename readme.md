@@ -34,7 +34,7 @@
 - 🎯 **资源分配** — 灵活将主机资源分配给指定用户，实现租户隔离
 - 🔧 **连接修复** — 容器/虚拟机重建后一键修复 SSH 连接（重新推送公钥）
 - 📡 **在线探测** — 选择主机时自动发起 SSH 连接探测，实时显示主机在线/离线状态
-- 🐳 **Docker 化部署** — 完整的 Docker Compose 编排，一键启动 MySQL、Redis 和 SSH 靶机
+- 🐳 **Docker 化部署** — 完整的 Docker Compose 编排，一键启动 SSH 靶机（默认使用 SQLite + 内存通道层，无需 MySQL/Redis）
 - 🎨 **响应式布局** — 自适应窗口宽度，≤ 1000px 自动折叠侧栏，窄屏隐藏标题和面包屑
 - 🌐 **中文本地化** — 全局 Ant Design 中文配置，穿梭框、表格、弹窗等组件完整汉化
 - 🖼️ **用户头像** — 支持上传自定义头像，无头像时按角色显示不同渐变默认头像
@@ -67,8 +67,6 @@
 | simplejwt | 5.5 | JWT 认证 |
 | Paramiko | 4.0 | SSH/SFTP 客户端 |
 | Daphne | 4.0 | ASGI 服务器 |
-| channels_redis | 4.3 | Redis 通道层 |
-| PyMySQL | 1.2 | MySQL 驱动 |
 | django-cors-headers | 4.3 | 跨域处理 |
 | django-filter | 25.2 | 查询过滤 |
 | Pillow | 12.2 | 图片处理（头像） |
@@ -77,9 +75,9 @@
 
 | 技术 | 用途 |
 |------|------|
-| Docker / Docker Compose | 容器化部署 |
-| MySQL | 持久化数据库 |
-| Redis | WebSocket 消息队列 & 缓存 |
+| Docker / Docker Compose | 容器化部署（仅 SSH 靶机） |
+| SQLite | 持久化数据库（默认） |
+| InMemoryChannelLayer | WebSocket 消息队列（默认，内存） |
 
 ---
 
@@ -94,7 +92,7 @@ web_ssh/
 │       ├── asgi.py                 # ASGI 配置 (HTTP + WebSocket)
 │       ├── settings/
 │       │   ├── base.py             # 基础配置 (SQLite + 内存缓存兜底)
-│       │   └── dev.py              # 开发环境配置 (MySQL/Redis/JWT)
+│       │   └── dev.py              # 开发环境配置 (SQLite/内存/JWT，MySQL/Redis 已注释备用)
 │       ├── apps/
 │       │   ├── host/               # 主机管理应用
 │       │   │   ├── models.py       # Host, HostCategory 模型
@@ -129,10 +127,8 @@ web_ssh/
 │
 ├── docker/                         # Docker 基础设施
 │   ├── build/
-│   │   ├── docker-compose.yaml     # 容器编排 (MySQL/Redis/4×SSH)
+│   │   ├── docker-compose.yaml     # 容器编排 (4×SSH)
 │   │   └── Dockerfile              # ubuntu-ssh 镜像构建
-│   ├── mysql/conf/my.cnf           # MySQL 配置
-│   └── redis/conf/                 # Redis 配置
 │
 └── assets/                         # 文档截图
 ```
@@ -145,9 +141,10 @@ web_ssh/
 
 | 依赖 | 说明 |
 |------|------|
-| **Docker / Docker Desktop** | 运行 MySQL、Redis 和 SSH 靶机容器 |
+| **Docker / Docker Desktop** | 运行 SSH 靶机容器（可选，SQLite + 内存通道层无需 Docker） |
 | **Node.js** (推荐 v18+) | 前端构建 |
-| **Python** (推荐 3.10+) | 后端运行 |
+| **Python** (推荐 3.12+) | 后端运行 |
+| **uv** | Python 包管理器 |
 | **WSL 2** (v2.6+) | ⚠️ 仅 Windows 用户需要 |
 
 #### Windows 用户 — 安装 WSL 2
@@ -173,7 +170,7 @@ cd docker/build
 # 构建 ubuntu-ssh 镜像
 docker build -t ubuntu-ssh:latest .
 
-# 启动所有容器（MySQL + Redis + 4 × Ubuntu SSH）
+# 启动 SSH 容器（默认使用 SQLite + 内存通道层，无需 MySQL/Redis）
 docker compose up -d
 ```
 
@@ -181,8 +178,6 @@ docker compose up -d
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| MySQL | 3306 | 数据库 |
-| Redis | 6379 | 缓存/消息队列 |
 | Ubuntu SSH #1 | 10021 | SSH 靶机 |
 | Ubuntu SSH #2 | 10022 | SSH 靶机 |
 | Ubuntu SSH #3 | 10023 | SSH 靶机 |
@@ -202,18 +197,18 @@ SSH 容器内置账户（见dockerfile）：
 ```bash
 cd backend
 
-# 安装 Python 依赖
-pip install -r requirements.txt
+# 安装 Python 依赖（使用 uv）
+uv sync
 
 # 数据库迁移
-python manage.py makemigrations
-python manage.py migrate
+uv run python manage.py makemigrations
+uv run python manage.py migrate
 
 # 创建超级管理员账户（这是登录平台的唯一账户）
-python manage.py createsuperuser
+uv run python manage.py createsuperuser
 
 # 启动后端开发服务器 → http://127.0.0.1:8000
-python manage.py runserver
+uv run python manage.py runserver
 ```
 
 Django Admin 管理后台：[http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
@@ -269,12 +264,13 @@ npm run dev
 
 ## ⚙️ 配置说明
 
-### 切换至 SQLite + 内存缓存（无需 Docker）
+### 默认配置：SQLite + 内存通道层
 
-如需轻量化运行，在 `dev.py` 中注释掉 `DATABASES` 和 `CHANNEL_LAYERS`，系统自动使用 `base.py` 中的 SQLite + 内存缓存。
-### 自定义 MySQL 连接
+开发环境默认使用 **SQLite** 数据库和 **内存通道层**，无需安装 MySQL/Redis，开箱即用。
 
-使用自行安装的 MySQL 时，通过环境变量配置连接参数：
+### 切换至 MySQL + Redis
+
+如需使用 MySQL 和 Redis，在 `dev.py` 中取消注释对应的配置块，并注释掉 SQLite/内存配置即可。MySQL 环境变量：
 
 | 环境变量      | 默认值      | 说明                   |
 | ------------- | ----------- | ---------------------- |
@@ -284,9 +280,7 @@ npm run dev
 | `DB_HOST`     | `127.0.0.1` | 数据库地址             |
 | `DB_PORT`     | `3306`      | 数据库端口             |
 
-### 自定义 Redis 连接
-
-使用自行安装的 Redis 时，在 `dev.py` 中修改 `CHANNEL_LAYERS` 的 `hosts` 地址即可。
+Redis 连接地址在 `dev.py` 注释中的 `CHANNEL_LAYERS` 的 `hosts` 字段修改。
 
 ---
 

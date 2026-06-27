@@ -16,44 +16,55 @@ INSTALLED_APPS = [
 # 异步
 ASGI_APPLICATION = 'apps.asgi.application'
 
-# 通道层：Redis 消息队列
+# 通道层：内存（开发环境）
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [{
+#                 "address": "redis://127.0.0.1:6379/0",
+#                 "socket_connect_timeout": 5,
+#                 "socket_timeout": 10,
+#                 "socket_keepalive": True,
+#                 "retry_on_timeout": True,
+#                 "health_check_interval": 30,
+#             }],
+#             "capacity": 1500,
+#             "expiry": 60,
+#         },
+#     }
+# }
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [{
-                "address": "redis://127.0.0.1:6379/0",
-                "socket_connect_timeout": 5,
-                "socket_timeout": 10,
-                "socket_keepalive": True,
-                "retry_on_timeout": True,
-                "health_check_interval": 30,
-            }],
-            "capacity": 1500,
-            "expiry": 60,
-        },
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
     }
 }
 
-# 数据库：MySQL
+# 数据库：SQLite（开发环境）
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': os.getenv('DB_NAME', 'web_ssh'),
+#         'USER': os.getenv('DB_USER', 'root'),
+#         'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
+#         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+#         'PORT': os.getenv('DB_PORT', '3306'),
+#         'CONN_MAX_AGE': 600,
+#         'CONN_HEALTH_CHECKS': True,
+#         'OPTIONS': {
+#             'charset': 'utf8mb4',
+#             'use_unicode': True,
+#             'init_command': "SET "
+#                             "sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', "
+#                             "time_zone='+00:00'",
+#             'isolation_level': 'read committed',
+#         },
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'web_ssh'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'CONN_MAX_AGE': 600,
-        'CONN_HEALTH_CHECKS': True,
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'init_command': "SET "
-                            "sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION', "
-                            "time_zone='+00:00'",
-            'isolation_level': 'read committed',
-        },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
